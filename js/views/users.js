@@ -43,10 +43,14 @@ function userFormFields(u = {}, isCreate) {
   return `
     <div class="field"><label>Nombre completo</label><input name="name" value="${u.name || ""}" required></div>
     <div class="field"><label>Correo electrónico</label><input name="email" type="email" value="${u.email || ""}" required></div>
-    <div class="field">
-      <label>${isCreate ? "Contraseña" : "Nueva contraseña"}</label>
-      <input name="password" type="password" placeholder="${isCreate ? "Mínimo 6 caracteres" : "Dejar en blanco para no cambiar"}" ${isCreate ? "required" : ""}>
-    </div>
+    ${
+      isCreate
+        ? `<div class="field">
+            <label>Contraseña</label>
+            <input name="password" type="password" placeholder="Mínimo 6 caracteres" required>
+          </div>`
+        : ""
+    }
     <div class="field">
       <label>Rol</label>
       <select name="role" required>
@@ -54,6 +58,31 @@ function userFormFields(u = {}, isCreate) {
       </select>
     </div>
     <label class="checkbox-row"><input type="checkbox" name="active" ${u.active !== false ? "checked" : ""}> Usuario activo</label>
+  `;
+}
+
+function passwordCardHtml(isSelf) {
+  if (isSelf) {
+    return `
+      <form class="card" id="password-form" style="display:flex;flex-direction:column;gap:14px;">
+        <p style="font-weight:600;">Cambiar mi contraseña</p>
+        <div id="password-error"></div>
+        <div class="field"><label>Contraseña actual</label><input name="currentPassword" type="password" required></div>
+        <div class="field"><label>Nueva contraseña</label><input name="newPassword" type="password" minlength="6" required></div>
+        <div class="field"><label>Confirmar nueva contraseña</label><input name="confirmPassword" type="password" minlength="6" required></div>
+        <button type="submit" class="btn btn-primary btn-full">Actualizar contraseña</button>
+      </form>
+    `;
+  }
+  return `
+    <div class="card" style="display:flex;flex-direction:column;gap:10px;">
+      <p style="font-weight:600;">Contraseña</p>
+      <p style="font-size:13px;color:var(--muted);">
+        No es posible establecer la contraseña de otra persona directamente. Envíale un correo para
+        que elija una nueva.
+      </p>
+      <button type="button" id="send-reset-btn" class="btn btn-secondary btn-full">Enviar correo para restablecer contraseña</button>
+    </div>
   `;
 }
 
@@ -103,6 +132,8 @@ export async function renderUserDetail(container, params) {
     return;
   }
 
+  const isSelf = user.id === state.user.uid;
+
   container.innerHTML = `
     <div class="page">
       ${pageHeaderHtml({ title: user.name, subtitle: user.email, backHref: "/users" })}
@@ -111,6 +142,9 @@ export async function renderUserDetail(container, params) {
         ${userFormFields(user, false)}
         <button type="submit" class="btn btn-primary btn-full">Guardar usuario</button>
       </form>
+      <div class="content" style="padding-top:0;">
+        ${passwordCardHtml(isSelf)}
+      </div>
       <div class="content" style="padding-top:0;">
         <form class="card" id="perm-form">
           <p style="font-weight:600;margin:0 0 4px;">Permisos por módulo</p>
@@ -149,7 +183,6 @@ export async function renderUserDetail(container, params) {
       role: fd.get("role"),
       active: fd.get("active") === "on",
     };
-    if (fd.get("password")) payload.password = fd.get("password");
     const btn = e.target.querySelector("button[type=submit]");
     btn.disabled = true;
     btn.textContent = "Guardando...";
@@ -162,6 +195,50 @@ export async function renderUserDetail(container, params) {
       btn.textContent = "Guardar usuario";
     }
   });
+
+  if (isSelf) {
+    document.getElementById("password-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const errorBox = document.getElementById("password-error");
+      errorBox.innerHTML = "";
+      const fd = new FormData(e.target);
+      const currentPassword = fd.get("currentPassword");
+      const newPassword = fd.get("newPassword");
+      const confirmPassword = fd.get("confirmPassword");
+      if (newPassword !== confirmPassword) {
+        errorBox.innerHTML = `<p class="banner-error">Las contraseñas nuevas no coinciden.</p>`;
+        return;
+      }
+      const btn = e.target.querySelector("button[type=submit]");
+      btn.disabled = true;
+      btn.textContent = "Actualizando...";
+      try {
+        await data.changeMyPassword(currentPassword, newPassword);
+        toast("Contraseña actualizada correctamente.", "success");
+        e.target.reset();
+      } catch (err) {
+        errorBox.innerHTML = `<p class="banner-error">${err.message}</p>`;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Actualizar contraseña";
+      }
+    });
+  } else {
+    document.getElementById("send-reset-btn").addEventListener("click", async (e) => {
+      const btn = e.target;
+      btn.disabled = true;
+      btn.textContent = "Enviando...";
+      try {
+        await data.requestPasswordReset(user.email, state.user);
+        toast("Correo de restablecimiento enviado.", "success");
+      } catch (err) {
+        toast(err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Enviar correo para restablecer contraseña";
+      }
+    });
+  }
 
   document.getElementById("perm-form").addEventListener("submit", async (e) => {
     e.preventDefault();

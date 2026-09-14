@@ -21,6 +21,8 @@ import {
   getDownloadURL,
   deleteObject,
   adminCreateAuthUser,
+  changeOwnPassword,
+  sendPasswordReset,
 } from "./firebase.js";
 import { computeFlatPermissions } from "./permissions.js";
 
@@ -444,6 +446,18 @@ export async function updateUser(id, data, admin) {
 export async function updateUserPermissions(id, flatPermissions, admin) {
   await updateDoc(doc(db, "users", id), { permissions: flatPermissions, updatedAt: serverTimestamp() });
   await logAudit("User", id, "UPDATE", admin.uid, { permissionsUpdated: true });
+}
+
+// A signed-in user changing their OWN password (requires their current one).
+export async function changeMyPassword(currentPassword, newPassword) {
+  await changeOwnPassword(currentPassword, newPassword);
+}
+
+// An admin can't set someone else's password directly (no backend to do it
+// with); this sends that person an email so they can choose their own.
+export async function requestPasswordReset(email, admin) {
+  await sendPasswordReset(email);
+  await logAudit("User", email, "UPDATE", admin.uid, { passwordResetRequested: true });
 }
 
 
