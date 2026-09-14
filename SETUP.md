@@ -1,65 +1,45 @@
-# Configuración inicial — Control de Flota
+# Control de Flota — estado del despliegue
 
-Sitio 100% estático (HTML/CSS/JS, sin build, sin servidor propio) que usa **Firebase**
-(Authentication + Firestore + Storage) como backend y se publica gratis en **GitHub Pages**.
-Por eso funciona sin que ninguna computadora esté encendida.
+✅ **Ya está publicado y funcionando:**
 
-## 1. Crear el proyecto de Firebase
+- App en vivo: **https://villaltawilim-commits.github.io/control-flota/**
+- Repositorio: **https://github.com/villaltawilim-commits/control-flota**
+- Proyecto Firebase: `vehiculos-kms` ([console](https://console.firebase.google.com/project/vehiculos-kms))
+- Firestore, reglas de seguridad y Authentication (correo/contraseña): activos.
+- Usuario administrador inicial: `villaltawilim@gmail.com` (contraseña entregada por chat — cámbiala desde
+  Firebase Console → Authentication → usuario → "Restablecer contraseña" si quieres una nueva).
 
-1. Ve a [console.firebase.google.com](https://console.firebase.google.com) → **Agregar proyecto**.
-2. **Compilación → Authentication → Comenzar → Correo electrónico/contraseña** → habilítalo.
-3. **Compilación → Firestore Database → Crear base de datos** → modo producción, la región que prefieras.
-4. **Compilación → Storage → Comenzar** (plan gratuito Spark alcanza para empezar; si sube mucho volumen de fotos, hay que pasar al plan Blaze de pago por uso).
-5. ⚙️ **Configuración del proyecto → Tus apps →** ícono `</>` (Web) → nómbrala → copia el objeto `firebaseConfig`.
-6. Pega ese objeto en [`js/lib/firebase-config.js`](js/lib/firebase-config.js), reemplazando los valores `REEMPLAZAR_...`.
+⚠️ **Pendiente — Storage (fotos de factura/bomba):**
 
-## 2. Reglas de seguridad (paso temporal + paso final)
+Firebase Storage requiere el plan de pago "Blaze" (mantiene una capa gratuita amplia, pero pide una
+tarjeta registrada). Mientras no se active, todo el resto de la app funciona con normalidad; solo
+la carga de fotos en Combustible quedará pendiente. Para activarlo:
 
-**Firestore Database → Reglas**: pega primero el contenido de
-[`firestore.rules.bootstrap`](firestore.rules.bootstrap) y publica. Son reglas temporales
-que solo permiten crear tu propio perfil.
+1. [console.firebase.google.com/project/vehiculos-kms/storage](https://console.firebase.google.com/project/vehiculos-kms/storage)
+2. **Comenzar** → seguir el flujo para actualizar a plan Blaze.
+3. Avisar para desplegar las reglas de Storage (`storage.rules`, ya listas en este repo) con:
+   ```bash
+   firebase deploy --only storage --project vehiculos-kms
+   ```
 
-**Storage → Reglas**: pega el contenido de [`storage.rules`](storage.rules) y publica (estas
-ya son las definitivas).
+## Cómo se hizo (referencia técnica)
 
-## 3. Crear el primer administrador
+Sitio 100% estático (HTML/CSS/JS, sin build, sin servidor propio). Backend: Firebase
+(Authentication + Firestore + Storage). Publicado gratis en GitHub Pages — por eso funciona sin
+que ninguna computadora esté encendida.
 
-1. Sirve la carpeta localmente (`npx serve .` o la extensión "Live Server" de VS Code) o publícala
-   ya en GitHub Pages (ver paso 5) y abre `bootstrap.html`.
-2. Llena tu nombre, correo y contraseña → **Crear administrador**.
-3. Cuando veas "✅ Administrador creado correctamente", vuelve a **Firestore Database → Reglas**
-   y reemplaza las reglas temporales por el contenido definitivo de [`firestore.rules`](firestore.rules).
-   Publica.
-4. Borra (o simplemente no enlaces) `bootstrap.html` — ya no se necesita. Cualquier usuario nuevo
-   a partir de ahora se crea desde dentro de la app, en **Usuarios → Nuevo usuario** (solo admins).
+- `js/lib/firebase-config.js` — credenciales del proyecto `vehiculos-kms` (públicas por diseño;
+  la seguridad real la aplican `firestore.rules` / `storage.rules`, no el código JS).
+- `firestore.rules` — reglas de seguridad ya publicadas. Cualquier cambio: editar el archivo y
+  correr `firebase deploy --only firestore:rules --project vehiculos-kms`.
+- `bootstrap.html` / `firestore.rules.bootstrap` — quedan como referencia por si alguna vez hay
+  que recrear el primer administrador manualmente desde el navegador (esta vez se creó por
+  terminal, no se necesitaron).
 
-## 4. Publicar en GitHub Pages
+## Uso diario
 
-Desde esta carpeta:
-
-```bash
-gh repo create control-flota --public --source=. --push
-gh repo edit --enable-pages -b main -p /   # o actívalo manualmente en Settings → Pages
-```
-
-Si prefieres hacerlo a mano: crea el repositorio en GitHub, sube estos archivos, y en
-**Settings → Pages** selecciona la rama `main` y carpeta `/ (root)`.
-
-Tu app quedará en `https://<tu-usuario>.github.io/control-flota/`.
-
-## 5. Uso diario
-
-- Administrador inicial: el correo/contraseña que usaste en `bootstrap.html`.
-- El administrador crea el resto de usuarios desde **Usuarios → Nuevo usuario** (no requiere
-  volver a Firebase Console).
+- El administrador crea el resto de usuarios desde dentro de la app: **Usuarios → Nuevo usuario**
+  (no requiere volver a Firebase Console).
 - Los permisos por módulo/acción se ajustan por usuario en **Usuarios → (seleccionar usuario)**.
-
-## Notas técnicas
-
-- No hay servidor: toda la lógica corre en el navegador y la seguridad real la aplican las
-  **reglas de Firestore/Storage** (`firestore.rules` / `storage.rules`), no el código JavaScript
-  (que solo mejora la experiencia — un usuario sin permiso que intente escribir directo contra
-  la API de Firebase será rechazado por las reglas).
-- Las fotos de facturas/bombas se guardan en Firebase Storage bajo `photos/{idDeCombustible}/`.
-- Plan gratuito de Firebase (Spark): suficiente para uso moderado; si la empresa crece mucho en
-  volumen de datos/fotos, hay que activar el plan Blaze (pago por uso, con capa gratuita generosa).
+- Para actualizar el sitio tras cambios de código: `git push` a `main` (GitHub Pages lo republica
+  automáticamente en 1-2 minutos).
