@@ -1,7 +1,7 @@
 import { state } from "../lib/store.js";
 import { can } from "../lib/permissions.js";
 import * as data from "../lib/data.js";
-import { formatCurrency, formatDate, formatDateTime, formatKm, todayInput, nowTimeInput } from "../lib/format.js";
+import { formatCurrency, formatDate, formatDateTime, formatDistance, todayInput, nowTimeInput } from "../lib/format.js";
 import { pageHeaderHtml, emptyStateHtml, toast, confirmAction } from "../lib/ui.js";
 import { icon } from "../lib/icons.js";
 import { navigate, currentQuery } from "../lib/router.js";
@@ -46,7 +46,7 @@ export async function renderRouteList(container) {
                     </div>
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;font-size:14px;">
                       <span style="color:var(--muted);">${formatDate(r.date)} · ${driver.name || ""}</span>
-                      <span style="font-weight:500;">${r.distanceKm != null ? formatKm(r.distanceKm) : "—"}</span>
+                      <span style="font-weight:500;">${r.distanceKm != null ? formatDistance(r.distanceKm) : "—"}</span>
                     </div>
                   </a>`;
                 })
@@ -80,9 +80,9 @@ export async function renderRouteNew(container) {
         <div class="field"><label>Ruta / Destino</label><input name="destination" placeholder="Ej. Zona 10, entrega cliente" required></div>
         <div class="form-grid-2">
           <div class="field"><label>Hora de salida</label><input name="departureTime" type="time" value="${nowTimeInput()}"></div>
-          <div class="field"><label>Kilometraje de salida</label><input name="departureMileage" id="departure-mileage" type="number" value="${vehicles[0].currentMileage}" required></div>
+          <div class="field"><label>Millaje de salida (mi)</label><input name="departureMileage" id="departure-mileage" type="number" value="${vehicles[0].currentMileage}" required></div>
         </div>
-        <p id="mileage-hint" class="field" style="margin-top:-8px;font-size:12px;color:var(--muted);">Último registrado: ${vehicles[0].currentMileage.toLocaleString("es-GT")} km</p>
+        <p id="mileage-hint" class="field" style="margin-top:-8px;font-size:12px;color:var(--muted);">Último registrado: ${vehicles[0].currentMileage.toLocaleString("es-GT")} mi</p>
         <div class="field"><label>Observaciones</label><textarea name="observations" placeholder="Opcional"></textarea></div>
         <button type="submit" class="btn btn-primary btn-full">Iniciar ruta</button>
       </form>
@@ -93,7 +93,7 @@ export async function renderRouteNew(container) {
   vehicleSelect.addEventListener("change", () => {
     const opt = vehicleSelect.selectedOptions[0];
     document.getElementById("departure-mileage").value = opt.dataset.mileage;
-    document.getElementById("mileage-hint").textContent = `Último registrado: ${Number(opt.dataset.mileage).toLocaleString("es-GT")} km`;
+    document.getElementById("mileage-hint").textContent = `Último registrado: ${Number(opt.dataset.mileage).toLocaleString("es-GT")} mi`;
   });
 
   const form = document.getElementById("route-form");
@@ -155,15 +155,15 @@ export async function renderRouteDetail(container, params) {
       <div class="content">
         <div class="card" style="display:flex;align-items:center;justify-content:space-between;">
           <div><p class="info-label">Estado</p><p class="info-value">${route.status === "OPEN" ? "En curso" : "Cerrada"}</p></div>
-          <div style="text-align:right;"><p class="info-label">Distancia</p><p class="info-value">${route.distanceKm != null ? formatKm(route.distanceKm) : "—"}</p></div>
+          <div style="text-align:right;"><p class="info-label">Distancia</p><p class="info-value">${route.distanceKm != null ? formatDistance(route.distanceKm) : "—"}</p></div>
         </div>
 
         <div class="card">
           <div class="info-grid">
             <div><p class="info-label">Fecha</p><p class="info-value">${formatDate(route.date)}</p></div>
             <div><p class="info-label">Conductor</p><p class="info-value">${driver?.name || "—"}</p></div>
-            <div><p class="info-label">Salida</p><p class="info-value">${formatKm(route.departureMileage)}</p></div>
-            <div><p class="info-label">Entrada</p><p class="info-value">${route.arrivalMileage != null ? formatKm(route.arrivalMileage) : "Pendiente"}</p></div>
+            <div><p class="info-label">Salida</p><p class="info-value">${formatDistance(route.departureMileage)}</p></div>
+            <div><p class="info-label">Entrada</p><p class="info-value">${route.arrivalMileage != null ? formatDistance(route.arrivalMileage) : "Pendiente"}</p></div>
           </div>
           ${route.observations ? `<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);"><p class="info-label">Observaciones</p><p style="font-size:14px;">${route.observations}</p></div>` : ""}
         </div>
@@ -174,7 +174,7 @@ export async function renderRouteDetail(container, params) {
                 <p style="font-weight:600;margin:0 0 8px;">Costo de combustible en esta ruta</p>
                 <div class="info-grid">
                   <div><p class="info-label">Combustible</p><p class="info-value">${formatCurrency(costTotal)}</p></div>
-                  <div><p class="info-label">Costo por km</p><p class="info-value">${costPerKm != null ? formatCurrency(costPerKm) : "—"}</p></div>
+                  <div><p class="info-label">Costo por milla</p><p class="info-value">${costPerKm != null ? formatCurrency(costPerKm) : "—"}</p></div>
                 </div>
               </div>`
             : ""
@@ -233,9 +233,9 @@ function closeRouteFormHtml(route) {
       <div id="close-form-error"></div>
       <div class="form-grid-2">
         <div class="field"><label>Hora de entrada</label><input name="arrivalTime" type="time" value="${nowTimeInput()}"></div>
-        <div class="field"><label>Kilometraje de entrada</label><input name="arrivalMileage" type="number" value="${route.departureMileage}" required></div>
+        <div class="field"><label>Millaje de entrada (mi)</label><input name="arrivalMileage" type="number" value="${route.departureMileage}" required></div>
       </div>
-      <p style="margin-top:-8px;font-size:12px;color:var(--muted);">Salida: ${route.departureMileage.toLocaleString("es-GT")} km</p>
+      <p style="margin-top:-8px;font-size:12px;color:var(--muted);">Salida: ${route.departureMileage.toLocaleString("es-GT")} mi</p>
       <div class="field"><label>Observaciones</label><textarea name="observations" placeholder="Opcional"></textarea></div>
       <button type="submit" class="btn btn-primary btn-full">Cerrar ruta</button>
     </form>
@@ -267,11 +267,11 @@ export async function renderRouteEdit(container, params) {
         <div class="field"><label>Ruta / Destino</label><input name="destination" value="${route.destination}" required></div>
         <div class="form-grid-2">
           <div class="field"><label>Hora de salida</label><input name="departureTime" type="time" value="${timeOf(route.departureTime)}"></div>
-          <div class="field"><label>Km de salida</label><input name="departureMileage" type="number" value="${route.departureMileage}" required></div>
+          <div class="field"><label>Mi de salida</label><input name="departureMileage" type="number" value="${route.departureMileage}" required></div>
         </div>
         <div class="form-grid-2">
           <div class="field"><label>Hora de entrada</label><input name="arrivalTime" type="time" value="${timeOf(route.arrivalTime)}"></div>
-          <div class="field"><label>Km de entrada</label><input name="arrivalMileage" type="number" value="${route.arrivalMileage ?? ""}"></div>
+          <div class="field"><label>Mi de entrada</label><input name="arrivalMileage" type="number" value="${route.arrivalMileage ?? ""}"></div>
         </div>
         <div class="field"><label>Observaciones</label><textarea name="observations">${route.observations || ""}</textarea></div>
         <button type="submit" class="btn btn-primary btn-full">Guardar cambios</button>

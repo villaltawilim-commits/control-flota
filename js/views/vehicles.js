@@ -2,7 +2,7 @@ import { state } from "../lib/store.js";
 import { can } from "../lib/permissions.js";
 import * as data from "../lib/data.js";
 import { computeServiceStatus, ALERT_LEVEL_LABEL, ALERT_LEVEL_ICON } from "../lib/vehicle-status.js";
-import { formatCurrency, formatDate, formatDateInput, formatKm } from "../lib/format.js";
+import { formatCurrency, formatDate, formatDateInput, formatDistance } from "../lib/format.js";
 import { pageHeaderHtml, emptyStateHtml, toast, confirmAction } from "../lib/ui.js";
 import { icon } from "../lib/icons.js";
 import { navigate } from "../lib/router.js";
@@ -42,7 +42,7 @@ export async function renderVehicleList(container) {
                       ${!v.active ? `<span class="badge neutral" style="flex-shrink:0;">Inactivo</span>` : ""}
                     </div>
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;">
-                      <span style="font-size:14px;color:var(--muted);">${formatKm(v.currentMileage)}</span>
+                      <span style="font-size:14px;color:var(--muted);">${formatDistance(v.currentMileage)}</span>
                       <span class="badge ${status.alertLevel}">${ALERT_LEVEL_ICON[status.alertLevel]} ${ALERT_LEVEL_LABEL[status.alertLevel]}</span>
                     </div>
                   </a>`;
@@ -69,15 +69,15 @@ function vehicleFormFields(v = {}) {
       <div class="field"><label>Apodo / nombre interno</label><input name="nickname" value="${v.nickname || ""}" placeholder="Opcional"></div>
     </div>
     <div class="field">
-      <label>Kilometraje actual</label>
+      <label>Millaje actual (mi)</label>
       <input name="currentMileage" type="number" value="${v.currentMileage ?? ""}" required>
     </div>
     <div class="card">
       <p style="font-weight:600;margin:0 0 12px;">Mantenimiento</p>
       <div style="display:flex;flex-direction:column;gap:12px;">
         <div class="field"><label>Fecha del último servicio</label><input name="lastServiceDate" type="date" value="${v.lastServiceDate ? formatDateInput(v.lastServiceDate) : ""}"></div>
-        <div class="field"><label>Kilometraje del último servicio</label><input name="lastServiceMileage" type="number" value="${v.lastServiceMileage ?? ""}" required></div>
-        <div class="field"><label>Intervalo de servicio (km)</label><input name="serviceIntervalKm" type="number" value="${v.serviceIntervalKm ?? 5000}" required></div>
+        <div class="field"><label>Millaje del último servicio (mi)</label><input name="lastServiceMileage" type="number" value="${v.lastServiceMileage ?? ""}" required></div>
+        <div class="field"><label>Intervalo de servicio (mi)</label><input name="serviceIntervalKm" type="number" value="${v.serviceIntervalKm ?? 3200}" required></div>
       </div>
     </div>
     <label class="checkbox-row"><input type="checkbox" name="active" ${v.active !== false ? "checked" : ""}> Vehículo activo</label>
@@ -126,7 +126,7 @@ export async function renderVehicleForm(container, params) {
       active: fd.get("active") === "on",
     };
     if (payload.currentMileage < payload.lastServiceMileage) {
-      errorBox.innerHTML = `<p class="banner-error">El kilometraje actual no puede ser menor al del último servicio.</p>`;
+      errorBox.innerHTML = `<p class="banner-error">El millaje actual no puede ser menor al del último servicio.</p>`;
       return;
     }
     const btn = form.querySelector("button[type=submit]");
@@ -183,7 +183,7 @@ export async function renderVehicleDetail(container, params) {
             <div><p class="info-label">Placa</p><p class="info-value">${vehicle.plate}</p></div>
             <div><p class="info-label">Apodo</p><p class="info-value">${vehicle.nickname || "—"}</p></div>
             <div><p class="info-label">Estado</p><p class="info-value">${vehicle.active ? "Activo" : "Inactivo"}</p></div>
-            <div><p class="info-label">Kilometraje actual</p><p class="info-value">${formatKm(vehicle.currentMileage)}</p></div>
+            <div><p class="info-label">Millaje actual</p><p class="info-value">${formatDistance(vehicle.currentMileage)}</p></div>
           </div>
         </div>
 
@@ -194,12 +194,12 @@ export async function renderVehicleDetail(container, params) {
           </div>
           <div class="progress-track"><div class="progress-fill ${status.alertLevel}" style="width:${status.progressPercent}%"></div></div>
           <div class="stat-3">
-            <div><p class="big">${formatKm(vehicle.currentMileage)}</p>Actual</div>
-            <div><p class="big">${formatKm(status.nextServiceMileage)}</p>Próximo servicio</div>
-            <div><p class="big" style="${status.remainingKm <= 0 ? "color:var(--danger);" : ""}">${status.remainingKm <= 0 ? `Excedido ${formatKm(Math.abs(status.remainingKm))}` : formatKm(status.remainingKm)}</p>Faltan</div>
+            <div><p class="big">${formatDistance(vehicle.currentMileage)}</p>Actual</div>
+            <div><p class="big">${formatDistance(status.nextServiceMileage)}</p>Próximo servicio</div>
+            <div><p class="big" style="${status.remainingKm <= 0 ? "color:var(--danger);" : ""}">${status.remainingKm <= 0 ? `Excedido ${formatDistance(Math.abs(status.remainingKm))}` : formatDistance(status.remainingKm)}</p>Faltan</div>
           </div>
           <p style="margin:12px 0 0;font-size:12px;color:var(--muted);">
-            Último servicio: ${formatKm(vehicle.lastServiceMileage)}${vehicle.lastServiceDate ? ` · ${formatDate(vehicle.lastServiceDate)}` : ""} · Intervalo: ${formatKm(vehicle.serviceIntervalKm)}
+            Último servicio: ${formatDistance(vehicle.lastServiceMileage)}${vehicle.lastServiceDate ? ` · ${formatDate(vehicle.lastServiceDate)}` : ""} · Intervalo: ${formatDistance(vehicle.serviceIntervalKm)}
           </p>
         </div>
 
@@ -215,7 +215,7 @@ export async function renderVehicleDetail(container, params) {
         ${historySection("Historial de rutas", `/routes?vehicleId=${vehicle.id}`, routes, (r) => `
           <a href="#/routes/${r.id}" class="hist-row">
             <div style="min-width:0;"><p class="hist-title">${r.destination}</p><p class="hist-sub">${formatDate(r.date)}</p></div>
-            <span class="hist-value">${r.distanceKm != null ? formatKm(r.distanceKm) : "En curso"}</span>
+            <span class="hist-value">${r.distanceKm != null ? formatDistance(r.distanceKm) : "En curso"}</span>
           </a>`, "Sin rutas registradas")}
 
         ${historySection("Historial de combustible", `/fuel?vehicleId=${vehicle.id}`, fuelLogs, (f) => `
@@ -226,7 +226,7 @@ export async function renderVehicleDetail(container, params) {
 
         ${historySection("Historial de mantenimiento", null, maintenances, (m) => `
           <div class="hist-row">
-            <div style="min-width:0;"><p class="hist-title">${m.description}</p><p class="hist-sub">${formatDate(m.date)} · ${formatKm(m.mileage)}</p></div>
+            <div style="min-width:0;"><p class="hist-title">${m.description}</p><p class="hist-sub">${formatDate(m.date)} · ${formatDistance(m.mileage)}</p></div>
             ${m.cost != null ? `<span class="hist-value">${formatCurrency(m.cost)}</span>` : ""}
           </div>`, "Sin servicios registrados")}
       </div>

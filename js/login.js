@@ -16,7 +16,7 @@ export function renderLogin(root) {
         <div class="login-logo">
           <div class="mark">🚚</div>
           <h1>Control de Flota</h1>
-          <p>Combustible, kilometraje, rutas y mantenimiento</p>
+          <p>Combustible, millaje, rutas y mantenimiento</p>
         </div>
         <div class="login-box">
           <form id="login-form" style="display:flex;flex-direction:column;gap:16px;">

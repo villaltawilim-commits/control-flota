@@ -1,5 +1,5 @@
 import { getDashboardData } from "../lib/dashboard.js";
-import { formatCurrency, formatKm, formatNumber } from "../lib/format.js";
+import { formatCurrency, formatDistance, formatNumber } from "../lib/format.js";
 import { ALERT_LEVEL_ICON } from "../lib/vehicle-status.js";
 import { state } from "../lib/store.js";
 
@@ -39,7 +39,7 @@ export async function renderDashboard(container) {
                         <span style="color:var(--muted);"> — ${vehicle.plate}</span>
                       </span>
                       <span style="flex-shrink:0;font-weight:600;color:${status.alertLevel === "urgent" ? "var(--danger)" : "var(--warning)"};">
-                        ${status.remainingKm <= 0 ? `Excedido ${formatKm(Math.abs(status.remainingKm))}` : `Faltan ${formatKm(status.remainingKm)}`}
+                        ${status.remainingKm <= 0 ? `Excedido ${formatDistance(Math.abs(status.remainingKm))}` : `Faltan ${formatDistance(status.remainingKm)}`}
                       </span>
                     </a>`
                     )
@@ -63,10 +63,10 @@ export async function renderDashboard(container) {
           <div class="stat-card"><p class="label">Gal/Litros (mes)</p><p class="value">${formatNumber(data.fuel.monthQuantity, 1)}</p></div>
         </div>
 
-        <p class="section-label">Kilometraje</p>
+        <p class="section-label">Millaje</p>
         <div class="stat-grid cols-2">
-          <div class="stat-card"><p class="label">Recorrido hoy</p><p class="value">${formatKm(data.mileage.today)}</p></div>
-          <div class="stat-card"><p class="label">Recorrido del mes</p><p class="value">${formatKm(data.mileage.month)}</p></div>
+          <div class="stat-card"><p class="label">Recorrido hoy</p><p class="value">${formatDistance(data.mileage.today)}</p></div>
+          <div class="stat-card"><p class="label">Recorrido del mes</p><p class="value">${formatDistance(data.mileage.month)}</p></div>
         </div>
 
         <p class="section-label">Mantenimiento</p>

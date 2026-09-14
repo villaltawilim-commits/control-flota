@@ -136,7 +136,7 @@ export async function createRoute(data, user) {
   const vehicle = vehicleSnap.data();
   if (!vehicle.active) throw new Error("Este vehículo está inactivo.");
   if (data.departureMileage < vehicle.currentMileage) {
-    throw new Error(`El kilometraje de salida no puede ser menor al último registrado (${vehicle.currentMileage} km).`);
+    throw new Error(`El millaje de salida no puede ser menor al último registrado (${vehicle.currentMileage} mi).`);
   }
 
   const batch = writeBatch(db);
@@ -173,7 +173,7 @@ export async function closeRoute(id, data, user) {
   const route = routeSnap.data();
   if (route.status === "CLOSED") throw new Error("Esta ruta ya fue cerrada.");
   if (data.arrivalMileage < route.departureMileage) {
-    throw new Error(`El kilometraje de entrada no puede ser menor al de salida (${route.departureMileage} km).`);
+    throw new Error(`El millaje de entrada no puede ser menor al de salida (${route.departureMileage} mi).`);
   }
 
   const distanceKm = data.arrivalMileage - route.departureMileage;
@@ -203,7 +203,7 @@ export async function updateRoute(id, data, user) {
   const dateStr = data.date;
   const arrivalMileage = data.arrivalMileage != null && data.arrivalMileage !== "" ? Number(data.arrivalMileage) : null;
   if (arrivalMileage != null && arrivalMileage < data.departureMileage) {
-    throw new Error("El kilometraje de entrada no puede ser menor al de salida.");
+    throw new Error("El millaje de entrada no puede ser menor al de salida.");
   }
   const distanceKm = arrivalMileage != null ? arrivalMileage - data.departureMileage : null;
 

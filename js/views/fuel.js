@@ -1,7 +1,7 @@
 import { state } from "../lib/store.js";
 import { can } from "../lib/permissions.js";
 import * as data from "../lib/data.js";
-import { formatCurrency, formatDate, formatKm, todayInput } from "../lib/format.js";
+import { formatCurrency, formatDate, formatDistance, todayInput } from "../lib/format.js";
 import { pageHeaderHtml, emptyStateHtml, toast, confirmAction } from "../lib/ui.js";
 import { icon } from "../lib/icons.js";
 import { navigate, currentQuery } from "../lib/router.js";
@@ -120,7 +120,7 @@ export async function renderFuelNew(container) {
             ${openRoutes.map((r) => `<option value="${r.id}" ${r.id === initialRouteId ? "selected" : ""}>${r.destination}</option>`).join("")}
           </select>
         </div>
-        <div class="field"><label>Kilometraje al cargar combustible</label><input name="mileage" id="mileage-input" type="number" value="${vehicles.find((v) => v.id === selectedVehicleId).currentMileage}" required></div>
+        <div class="field"><label>Millaje al cargar combustible (mi)</label><input name="mileage" id="mileage-input" type="number" value="${vehicles.find((v) => v.id === selectedVehicleId).currentMileage}" required></div>
         <div class="field">
           <label>Tipo de combustible</label>
           <select name="fuelType" required>${FUEL_TYPES.map((t) => `<option value="${t}">${t}</option>`).join("")}</select>
@@ -247,7 +247,7 @@ export async function renderFuelDetail(container, params) {
         <div class="card">
           <div class="info-grid">
             <div><p class="info-label">Vehículo</p><p class="info-value">${vehicle ? `${vehicle.brand} ${vehicle.model} · ${vehicle.plate}` : "—"}</p></div>
-            <div><p class="info-label">Kilometraje</p><p class="info-value">${formatKm(fuelLog.mileage)}</p></div>
+            <div><p class="info-label">Millaje</p><p class="info-value">${formatDistance(fuelLog.mileage)}</p></div>
             <div><p class="info-label">Tipo</p><p class="info-value">${fuelLog.fuelType}</p></div>
             <div><p class="info-label">Cantidad</p><p class="info-value">${fuelLog.quantity} gal/L</p></div>
             <div><p class="info-label">Precio unitario</p><p class="info-value">${formatCurrency(fuelLog.pricePerUnit)}</p></div>

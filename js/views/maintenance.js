@@ -1,7 +1,7 @@
 import { state } from "../lib/store.js";
 import { can } from "../lib/permissions.js";
 import * as data from "../lib/data.js";
-import { formatCurrency, formatDate, formatKm, todayInput } from "../lib/format.js";
+import { formatCurrency, formatDate, formatDistance, todayInput } from "../lib/format.js";
 import { pageHeaderHtml, emptyStateHtml, toast, confirmAction } from "../lib/ui.js";
 import { icon } from "../lib/icons.js";
 import { navigate } from "../lib/router.js";
@@ -37,7 +37,7 @@ export async function renderMaintenanceList(container) {
                       ${m.cost != null ? `<span style="font-weight:600;flex-shrink:0;">${formatCurrency(m.cost)}</span>` : ""}
                     </div>
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;font-size:13px;color:var(--muted);">
-                      <span>${formatDate(m.date)} · ${formatKm(m.mileage)}${m.performedBy ? ` · ${m.performedBy}` : ""}</span>
+                      <span>${formatDate(m.date)} · ${formatDistance(m.mileage)}${m.performedBy ? ` · ${m.performedBy}` : ""}</span>
                       ${canDelete ? `<button class="btn-link-danger delete-maint" data-id="${m.id}">${icon("trash", 14)}</button>` : ""}
                     </div>
                   </div>`;
@@ -77,14 +77,14 @@ export async function renderMaintenanceNew(container) {
         </div>
         <div class="form-grid-2">
           <div class="field"><label>Fecha del servicio</label><input name="date" type="date" value="${todayInput()}" required></div>
-          <div class="field"><label>Kilometraje del servicio</label><input name="mileage" id="mileage-input" type="number" value="${vehicles[0]?.currentMileage ?? ""}" required></div>
+          <div class="field"><label>Millaje del servicio (mi)</label><input name="mileage" id="mileage-input" type="number" value="${vehicles[0]?.currentMileage ?? ""}" required></div>
         </div>
         <div class="field"><label>Descripción del servicio</label><textarea name="description" placeholder="Ej. Cambio de aceite y filtros" required></textarea></div>
         <div class="form-grid-2">
           <div class="field"><label>Costo</label><input name="cost" type="number" step="0.01" placeholder="Opcional"></div>
           <div class="field"><label>Realizado por</label><input name="performedBy" placeholder="Taller / mecánico"></div>
         </div>
-        <p class="banner-info">Al guardar, este servicio se convierte en el último mantenimiento del vehículo y se recalcula automáticamente el próximo kilometraje de servicio.</p>
+        <p class="banner-info">Al guardar, este servicio se convierte en el último mantenimiento del vehículo y se recalcula automáticamente el próximo millaje de servicio.</p>
         <button type="submit" class="btn btn-primary btn-full">Guardar mantenimiento</button>
       </form>
     </div>

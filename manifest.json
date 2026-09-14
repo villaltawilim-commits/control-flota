@@ -1,7 +1,7 @@
 {
   "name": "Control de Flota",
   "short_name": "Flota",
-  "description": "Control de combustible, kilometraje, rutas y mantenimiento de vehículos",
+  "description": "Control de combustible, millaje, rutas y mantenimiento de vehículos",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
