@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Configuración inicial — Control de Flota</title>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<main class="login-screen safe-top safe-bottom">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="mark">🚚</div>
+      <h1>Configuración inicial</h1>
+      <p>Crea el primer usuario administrador. Usa esta página <strong>una sola vez</strong>.</p>
+    </div>
+    <div class="login-box">
+      <form id="bootstrap-form" style="display:flex;flex-direction:column;gap:16px;">
+        <div class="field"><label>Tu nombre</label><input name="name" required></div>
+        <div class="field"><label>Correo electrónico</label><input name="email" type="email" required></div>
+        <div class="field"><label>Contraseña</label><input name="password" type="password" minlength="6" required></div>
+        <div id="bootstrap-error"></div>
+        <button type="submit" class="btn btn-primary btn-full">Crear administrador</button>
+      </form>
+      <div id="bootstrap-success" hidden>
+        <p class="banner-info" style="margin-bottom:12px;">
+          ✅ Administrador creado correctamente.
+        </p>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">
+          Ahora ve a <strong>Firebase Console → Firestore Database → Reglas</strong> y reemplaza las reglas temporales
+          por el contenido del archivo <code>firestore.rules</code> de este proyecto (haz lo mismo con
+          <code>storage.rules</code> en Storage → Reglas). Después puedes eliminar este archivo
+          <code>bootstrap.html</code> del repositorio.
+        </p>
+        <a href="index.html" class="btn btn-primary btn-full">Ir a la aplicación</a>
+      </div>
+    </div>
+  </div>
+</main>
+<script type="module">
+  import { auth, db, doc, setDoc, serverTimestamp } from "./js/lib/firebase.js";
+  import { createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
+  import { computeFlatPermissions } from "./js/lib/permissions.js";
+
+  document.getElementById("bootstrap-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const errorBox = document.getElementById("bootstrap-error");
+    errorBox.innerHTML = "";
+    const fd = new FormData(e.target);
+    const btn = e.target.querySelector("button[type=submit]");
+    btn.disabled = true;
+    btn.textContent = "Creando...";
+    try {
+      const cred = await createUserWithEmailAndPassword(auth, fd.get("email"), fd.get("password"));
+      await setDoc(doc(db, "users", cred.user.uid), {
+        name: fd.get("name"),
+        email: fd.get("email"),
+        role: "ADMIN",
+        active: true,
+        permissions: computeFlatPermissions("ADMIN", {}),
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+      document.getElementById("bootstrap-form").hidden = true;
+      document.getElementById("bootstrap-success").hidden = false;
+    } catch (err) {
+      errorBox.innerHTML = `<p class="banner-error">${err.message}</p>`;
+      btn.disabled = false;
+      btn.textContent = "Crear administrador";
+    }
+  });
+</script>
+</body>
+</html>

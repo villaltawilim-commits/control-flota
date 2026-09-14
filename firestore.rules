@@ -1,0 +1,69 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function profile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isActiveUser() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && profile().active == true;
+    }
+
+    // "can" reads the FLAT permissions map on the caller's own user profile
+    // (users/{uid}.permissions["module.action"]). The web app recomputes and
+    // writes this whole map every time an admin changes a user's role or
+    // permission overrides — rules never re-derive role defaults themselves.
+    function can(mod, action) {
+      return isActiveUser() && profile().permissions[mod + '.' + action] == true;
+    }
+
+    match /users/{uid} {
+      allow read: if isActiveUser();
+      allow create: if can('users', 'create');
+      allow update: if can('users', 'create') || can('users', 'update');
+      allow delete: if false;
+    }
+
+    match /vehicles/{id} {
+      allow read: if isActiveUser();
+      allow create: if can('vehicles', 'create');
+      allow update: if can('vehicles', 'update');
+      allow delete: if can('vehicles', 'delete');
+    }
+
+    match /routes/{id} {
+      allow read: if isActiveUser();
+      // Closing a route the same day is treated as part of "create" (the
+      // registration flow), matching the app's UI. Editing an already-saved
+      // route afterwards requires the separate "update" permission.
+      allow create: if can('routes', 'create');
+      allow update: if can('routes', 'create') || can('routes', 'update');
+      allow delete: if can('routes', 'delete');
+    }
+
+    match /fuelLogs/{id} {
+      allow read: if isActiveUser();
+      allow create: if can('fuel', 'create');
+      allow update: if can('fuel', 'update');
+      allow delete: if can('fuel', 'delete');
+    }
+
+    match /maintenances/{id} {
+      allow read: if isActiveUser();
+      allow create: if can('maintenance', 'create');
+      allow update: if can('maintenance', 'update');
+      allow delete: if can('maintenance', 'delete');
+    }
+
+    match /auditLogs/{id} {
+      allow read: if can('audit', 'view');
+      // Every write elsewhere in the app also writes one auditLogs entry
+      // client-side; any active user may create one, nobody may edit history.
+      allow create: if isActiveUser();
+      allow update, delete: if false;
+    }
+  }
+}

@@ -1,0 +1,20 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /photos/{fuelLogId}/{fileName} {
+      function profile() {
+        return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data;
+      }
+      function isActive() {
+        return request.auth != null && profile().active == true;
+      }
+
+      allow read: if request.auth != null;
+      allow write: if isActive()
+        && profile().permissions['fuel.create'] == true
+        && request.resource.size < 15 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow delete: if isActive() && profile().permissions['fuel.delete'] == true;
+    }
+  }
+}
