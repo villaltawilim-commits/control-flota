@@ -36,11 +36,13 @@ service cloud.firestore {
 
     match /routes/{id} {
       allow read: if isActiveUser();
-      // Closing a route the same day is treated as part of "create" (the
-      // registration flow), matching the app's UI. Editing an already-saved
-      // route afterwards requires the separate "update" permission.
       allow create: if can('routes', 'create');
-      allow update: if can('routes', 'create') || can('routes', 'update');
+      // "create" permission is enough to close a still-OPEN route the same
+      // day (finishing what you started) or to force it to EXPIRED (the
+      // client-side midnight sweep). Touching a route that is already
+      // EXPIRED or CLOSED is editing historical data and requires "update".
+      allow update: if (can('routes', 'create') && resource.data.status == 'OPEN')
+        || can('routes', 'update');
       allow delete: if can('routes', 'delete');
     }
 

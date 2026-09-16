@@ -209,7 +209,18 @@ export async function updateRoute(id, data, user) {
   }
   const distanceKm = arrivalMileage != null ? arrivalMileage - data.departureMileage : null;
 
-  await updateDoc(doc(db, "routes", id), {
+  const routeRef = doc(db, "routes", id);
+  let status = "OPEN";
+  if (arrivalMileage != null) {
+    status = "CLOSED";
+  } else {
+    const existing = await getDoc(routeRef);
+    // Preserve EXPIRED when clearing the arrival fields instead of quietly
+    // reopening a route whose day already cut off.
+    if (existing.exists() && existing.data().status === "EXPIRED") status = "EXPIRED";
+  }
+
+  await updateDoc(routeRef, {
     date: toTimestamp(dateStr),
     vehicleId: data.vehicleId,
     destination: data.destination,
@@ -218,12 +229,29 @@ export async function updateRoute(id, data, user) {
     arrivalTime: toTimestampWithTime(dateStr, data.arrivalTime),
     arrivalMileage,
     distanceKm,
-    status: arrivalMileage != null ? "CLOSED" : "OPEN",
+    status,
     observations: data.observations || null,
     updatedById: user.uid,
     updatedAt: serverTimestamp(),
   });
   await logAudit("Route", id, "UPDATE", user.uid, data);
+}
+
+// Any route still OPEN once its day has passed gets force-closed as EXPIRED
+// (no arrival data — the driver never checked back in). There's no server/
+// cron here, so this runs lazily whenever someone loads the app; whoever
+// triggers it only needs "routes.create", matching who can normally close a
+// same-day route. Fixing an EXPIRED route afterward needs "routes.update".
+export async function expireStaleOpenRoutes() {
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const snap = await getDocs(query(collection(db, "routes"), where("status", "==", "OPEN")));
+  const stale = snap.docs.filter((d) => (d.data().date?.toMillis?.() ?? Infinity) < todayStart.getTime());
+  if (stale.length === 0) return;
+
+  const batch = writeBatch(db);
+  stale.forEach((d) => batch.update(d.ref, { status: "EXPIRED", updatedAt: serverTimestamp() }));
+  await batch.commit();
 }
 
 export async function deleteRoute(id, user) {

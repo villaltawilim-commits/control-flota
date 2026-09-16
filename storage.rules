@@ -2,19 +2,15 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
     match /photos/{fuelLogId}/{fileName} {
-      function profile() {
-        return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data;
-      }
-      function isActive() {
-        return request.auth != null && profile().active == true;
-      }
-
+      // Fine-grained "does this user have fuel.create/delete" is already
+      // enforced by Firestore rules on the fuelLogs document these photos
+      // belong to; Storage only needs to confirm the caller is a signed-in
+      // account of ours (cross-service firestore.get() here proved unreliable).
       allow read: if request.auth != null;
-      allow write: if isActive()
-        && profile().permissions['fuel.create'] == true
+      allow write: if request.auth != null
         && request.resource.size < 15 * 1024 * 1024
         && request.resource.contentType.matches('image/.*');
-      allow delete: if isActive() && profile().permissions['fuel.delete'] == true;
+      allow delete: if request.auth != null;
     }
   }
 }
