@@ -219,6 +219,8 @@ export async function renderFuelNew(container) {
     btn.textContent = "Guardando...";
     try {
       const id = await data.createFuelLog(payload, files, state.user, isAdmin);
+      const firstName = (state.profile?.name || "").trim().split(/\s+/)[0]?.toUpperCase();
+      toast(`${firstName ? firstName + " se" : "Se"} registró correctamente el gasto de combustible.`, "success");
       navigate(`/fuel/${id}`);
     } catch (err) {
       errorBox.innerHTML = `<p class="banner-error">${err.message}</p>`;
