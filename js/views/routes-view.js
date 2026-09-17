@@ -133,6 +133,7 @@ export async function renderRouteNew(container) {
     btn.textContent = "Iniciando ruta...";
     try {
       const id = await data.createRoute(payload, state.user);
+      toast("Has iniciado tu ruta, en el nombre de Dios. Que todo te salga bien.", "success");
       navigate(`/routes/${id}`);
     } catch (err) {
       errorBox.innerHTML = `<p class="banner-error">${err.message}</p>`;
