@@ -8,6 +8,7 @@ import { navigate, currentQuery } from "../lib/router.js";
 import { decimalInputAttrs, wireDecimalInputs, parseDecimal } from "../lib/decimal-input.js";
 
 const FUEL_TYPES = ["Diésel", "Gasolina Regular", "Gasolina Súper", "GLP"];
+const DEFAULT_FUEL_TYPE = "Gasolina Súper";
 
 export async function renderFuelList(container) {
   container.innerHTML = `<div class="center-page"><div class="spinner"></div></div>`;
@@ -124,7 +125,7 @@ export async function renderFuelNew(container) {
         <div class="field"><label>Millaje al cargar combustible (mi)</label><input name="mileage" id="mileage-input" type="number" value="${vehicles.find((v) => v.id === selectedVehicleId).currentMileage}" required></div>
         <div class="field">
           <label>Tipo de combustible</label>
-          <select name="fuelType" required>${FUEL_TYPES.map((t) => `<option value="${t}">${t}</option>`).join("")}</select>
+          <select name="fuelType" required>${FUEL_TYPES.map((t) => `<option value="${t}" ${t === DEFAULT_FUEL_TYPE ? "selected" : ""}>${t}</option>`).join("")}</select>
         </div>
         <div class="form-grid-2">
           <div class="field"><label>Cantidad (gal/L)</label><input name="quantity" id="quantity-input" ${decimalInputAttrs} data-decimal required></div>
