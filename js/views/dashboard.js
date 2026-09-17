@@ -56,12 +56,16 @@ export async function renderDashboard(container) {
           <div class="stat-card"><p class="label">Inactivos</p><p class="value">${data.vehicles.inactive}</p></div>
         </div>
 
-        <p class="section-label">Combustible</p>
-        <div class="stat-grid">
-          <div class="stat-card"><p class="label">Gasto de hoy</p><p class="value">${formatCurrency(data.fuel.todayTotal)}</p></div>
-          <div class="stat-card"><p class="label">Gasto del mes</p><p class="value">${formatCurrency(data.fuel.monthTotal)}</p></div>
-          <div class="stat-card"><p class="label">Gal/Litros (mes)</p><p class="value">${formatNumber(data.fuel.monthQuantity, 1)}</p></div>
-        </div>
+        ${
+          state.profile?.role !== "REGISTRAR"
+            ? `<p class="section-label">Combustible</p>
+              <div class="stat-grid">
+                <div class="stat-card"><p class="label">Gasto de hoy</p><p class="value">${formatCurrency(data.fuel.todayTotal)}</p></div>
+                <div class="stat-card"><p class="label">Gasto del mes</p><p class="value">${formatCurrency(data.fuel.monthTotal)}</p></div>
+                <div class="stat-card"><p class="label">Gal/Litros (mes)</p><p class="value">${formatNumber(data.fuel.monthQuantity, 1)}</p></div>
+              </div>`
+            : ""
+        }
 
         <p class="section-label">Millaje</p>
         <div class="stat-grid cols-2">
