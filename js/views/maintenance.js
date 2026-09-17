@@ -5,6 +5,7 @@ import { formatCurrency, formatDate, formatDistance, todayInput } from "../lib/f
 import { pageHeaderHtml, emptyStateHtml, toast, confirmAction } from "../lib/ui.js";
 import { icon } from "../lib/icons.js";
 import { navigate } from "../lib/router.js";
+import { decimalInputAttrs, wireDecimalInputs, parseDecimal } from "../lib/decimal-input.js";
 
 export async function renderMaintenanceList(container) {
   container.innerHTML = `<div class="center-page"><div class="spinner"></div></div>`;
@@ -81,7 +82,7 @@ export async function renderMaintenanceNew(container) {
         </div>
         <div class="field"><label>Descripción del servicio</label><textarea name="description" placeholder="Ej. Cambio de aceite y filtros" required></textarea></div>
         <div class="form-grid-2">
-          <div class="field"><label>Costo</label><input name="cost" type="number" step="0.01" placeholder="Opcional"></div>
+          <div class="field"><label>Costo</label><input name="cost" ${decimalInputAttrs} data-decimal placeholder="Opcional"></div>
           <div class="field"><label>Realizado por</label><input name="performedBy" placeholder="Taller / mecánico"></div>
         </div>
         <p class="banner-info">Al guardar, este servicio se convierte en el último mantenimiento del vehículo y se recalcula automáticamente el próximo millaje de servicio.</p>
@@ -93,6 +94,7 @@ export async function renderMaintenanceNew(container) {
   document.getElementById("vehicle-select").addEventListener("change", (e) => {
     document.getElementById("mileage-input").value = e.target.selectedOptions[0].dataset.mileage;
   });
+  wireDecimalInputs(container);
 
   const form = document.getElementById("maint-form");
   form.addEventListener("submit", async (e) => {
@@ -105,7 +107,7 @@ export async function renderMaintenanceNew(container) {
       date: fd.get("date"),
       mileage: Number(fd.get("mileage")),
       description: fd.get("description").trim(),
-      cost: fd.get("cost") ? Number(fd.get("cost")) : null,
+      cost: fd.get("cost") ? parseDecimal(fd.get("cost")) : null,
       performedBy: fd.get("performedBy").trim(),
     };
     const btn = form.querySelector("button[type=submit]");

@@ -5,6 +5,7 @@ import { formatCurrency, formatDate, formatDistance, todayInput } from "../lib/f
 import { pageHeaderHtml, emptyStateHtml, toast, confirmAction } from "../lib/ui.js";
 import { icon } from "../lib/icons.js";
 import { navigate, currentQuery } from "../lib/router.js";
+import { decimalInputAttrs, wireDecimalInputs, parseDecimal } from "../lib/decimal-input.js";
 
 const FUEL_TYPES = ["Diésel", "Gasolina Regular", "Gasolina Súper", "GLP"];
 
@@ -126,10 +127,10 @@ export async function renderFuelNew(container) {
           <select name="fuelType" required>${FUEL_TYPES.map((t) => `<option value="${t}">${t}</option>`).join("")}</select>
         </div>
         <div class="form-grid-2">
-          <div class="field"><label>Cantidad (gal/L)</label><input name="quantity" id="quantity-input" type="number" step="0.01" required></div>
-          <div class="field"><label>Precio por unidad</label><input name="pricePerUnit" id="price-input" type="number" step="0.01" required></div>
+          <div class="field"><label>Cantidad (gal/L)</label><input name="quantity" id="quantity-input" ${decimalInputAttrs} data-decimal required></div>
+          <div class="field"><label>Precio por unidad</label><input name="pricePerUnit" id="price-input" ${decimalInputAttrs} data-decimal required></div>
         </div>
-        <div class="field"><label>Total pagado</label><input name="total" id="total-input" type="number" step="0.01" required></div>
+        <div class="field"><label>Total pagado</label><input name="total" id="total-input" ${decimalInputAttrs} data-decimal required></div>
         <div class="form-grid-2">
           <div class="field"><label>Número de factura</label><input name="invoiceNumber" placeholder="Opcional"></div>
           <div class="field"><label>Estación de servicio</label><input name="station" placeholder="Opcional"></div>
@@ -156,6 +157,7 @@ export async function renderFuelNew(container) {
 
   wirePhotoCapture(container, "invoicePhoto");
   wirePhotoCapture(container, "pumpPhoto");
+  wireDecimalInputs(container);
 
   const vehicleSelect = document.getElementById("vehicle-select");
   const routeField = document.getElementById("route-field");
@@ -177,8 +179,8 @@ export async function renderFuelNew(container) {
   const priceInput = document.getElementById("price-input");
   const totalInput = document.getElementById("total-input");
   function recalcTotal() {
-    const q = Number(qtyInput.value);
-    const p = Number(priceInput.value);
+    const q = parseDecimal(qtyInput.value);
+    const p = parseDecimal(priceInput.value);
     if (q > 0 && p > 0) totalInput.value = (q * p).toFixed(2);
   }
   qtyInput.addEventListener("input", recalcTotal);
@@ -200,9 +202,9 @@ export async function renderFuelNew(container) {
       routeId: fd.get("routeId") || "",
       mileage: Number(fd.get("mileage")),
       fuelType: fd.get("fuelType"),
-      quantity: Number(fd.get("quantity")),
-      pricePerUnit: Number(fd.get("pricePerUnit")),
-      total: Number(fd.get("total")),
+      quantity: parseDecimal(fd.get("quantity")),
+      pricePerUnit: parseDecimal(fd.get("pricePerUnit")),
+      total: parseDecimal(fd.get("total")),
       invoiceNumber: fd.get("invoiceNumber").trim(),
       station: fd.get("station").trim(),
       observations: fd.get("observations").trim(),
