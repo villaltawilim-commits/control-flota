@@ -1,4 +1,4 @@
-const CACHE_NAME = "flota-shell-v1";
+const CACHE_NAME = "flota-shell-v2";
 const SHELL_ASSETS = ["./", "./index.html", "./css/styles.css", "./icons/icon-192.png", "./icons/icon-512.png"];
 
 self.addEventListener("install", (event) => {
@@ -22,7 +22,11 @@ self.addEventListener("fetch", (event) => {
   if (url.origin !== self.location.origin) return;
 
   event.respondWith(
-    fetch(event.request)
+    // { cache: "no-store" } bypasses the browser's own HTTP cache too — with
+    // a plain fetch(), a Cache-Control header from GitHub Pages could hand
+    // back a stale response that then gets re-saved into our own cache,
+    // making a deploy take up to ~10 minutes to actually show up.
+    fetch(event.request, { cache: "no-store" })
       .then((response) => {
         const copy = response.clone();
         caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy)).catch(() => {});
