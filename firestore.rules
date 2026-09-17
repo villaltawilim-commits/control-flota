@@ -30,7 +30,22 @@ service cloud.firestore {
     match /vehicles/{id} {
       allow read: if isActiveUser();
       allow create: if can('vehicles', 'create');
-      allow update: if can('vehicles', 'update');
+      // Starting/closing a route, logging fuel, and completing a maintenance
+      // all bump the vehicle's mileage (and maintenance also updates the
+      // last-service fields) as a side effect — that's not "editing a
+      // vehicle" in the sense vehicles.update gates, so allow it narrowly:
+      // only those specific fields may change, and only for someone who
+      // already has permission to do the action causing the bump.
+      allow update: if can('vehicles', 'update')
+        || (
+          (can('routes', 'create') || can('routes', 'update') || can('fuel', 'create'))
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['currentMileage', 'updatedAt'])
+        )
+        || (
+          can('maintenance', 'create')
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['currentMileage', 'lastServiceDate', 'lastServiceMileage', 'updatedAt'])
+        );
       allow delete: if can('vehicles', 'delete');
     }
 
