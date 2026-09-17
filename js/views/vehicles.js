@@ -45,6 +45,13 @@ export async function renderVehicleList(container) {
                       <span style="font-size:14px;color:var(--muted);">${formatDistance(v.currentMileage)}</span>
                       <span class="badge ${status.alertLevel}">${ALERT_LEVEL_ICON[status.alertLevel]} ${ALERT_LEVEL_LABEL[status.alertLevel]}</span>
                     </div>
+                    ${
+                      status.alertLevel !== "normal"
+                        ? `<p style="margin:6px 0 0;font-size:12px;font-weight:600;color:${status.alertLevel === "urgent" ? "var(--danger)" : "var(--warning)"};">
+                            ${status.remainingKm <= 0 ? `Excedido ${formatDistance(Math.abs(status.remainingKm))}` : `Faltan ${formatDistance(status.remainingKm)}`}
+                          </p>`
+                        : ""
+                    }
                   </a>`;
                 })
                 .join("")
