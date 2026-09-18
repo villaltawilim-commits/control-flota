@@ -6,6 +6,7 @@ import { pageHeaderHtml, emptyStateHtml, toast, confirmAction } from "../lib/ui.
 import { icon } from "../lib/icons.js";
 import { navigate, currentQuery } from "../lib/router.js";
 import { decimalInputAttrs, wireDecimalInputs, parseDecimal } from "../lib/decimal-input.js";
+import { compressImage } from "../lib/image-compress.js";
 
 const FUEL_TYPES = ["Diésel", "Gasolina Regular", "Gasolina Súper", "GLP"];
 const DEFAULT_FUEL_TYPE = "Gasolina Súper";
@@ -73,10 +74,21 @@ function wirePhotoCapture(root, name) {
   const removeBtn = wrap.querySelector(".remove-btn");
 
   drop.addEventListener("click", () => input.click());
-  input.addEventListener("change", () => {
+  input.addEventListener("change", async () => {
     const file = input.files[0];
     if (!file) return;
-    const url = URL.createObjectURL(file);
+
+    drop.classList.remove("filled");
+    drop.innerHTML = `${icon("camera", 26)}<span>Comprimiendo…</span>`;
+
+    const compressed = await compressImage(file);
+    if (compressed !== file) {
+      const dt = new DataTransfer();
+      dt.items.add(compressed);
+      input.files = dt.files;
+    }
+
+    const url = URL.createObjectURL(compressed);
     drop.classList.add("filled");
     drop.innerHTML = `<img src="${url}" alt="${name}">`;
     removeBtn.hidden = false;
