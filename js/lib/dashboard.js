@@ -50,8 +50,10 @@ export async function getDashboardData() {
     status: computeServiceStatus(v.currentMileage, v.lastServiceMileage, v.serviceIntervalKm),
   }));
 
+  // Every active vehicle's service status, not just the ones already due —
+  // most-overdue first so it still reads as an alert list at a glance.
   const alerts = statuses
-    .filter((s) => s.vehicle.active && s.status.alertLevel !== "normal")
+    .filter((s) => s.vehicle.active)
     .sort((a, b) => a.status.remainingKm - b.status.remainingKm);
 
   const sum = (arr, key) => arr.reduce((s, x) => s + (Number(x[key]) || 0), 0);

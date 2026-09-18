@@ -26,23 +26,23 @@ export async function renderDashboard(container) {
 
         ${
           data.alerts.length
-            ? `<div class="card" style="border-color:rgba(217,45,32,0.2);background:var(--danger-bg);">
-                <p style="font-weight:700;color:var(--danger);margin:0 0 10px;">🚨 Alertas de mantenimiento</p>
+            ? `<div class="card">
+                <p style="font-weight:700;margin:0 0 10px;">🚨 Alertas de mantenimiento</p>
                 <div style="display:flex;flex-direction:column;gap:8px;">
                   ${data.alerts
-                    .slice(0, 6)
-                    .map(
-                      ({ vehicle, status }) => `
-                    <a href="#/vehicles/${vehicle.id}" style="display:flex;align-items:center;justify-content:space-between;gap:8px;border-radius:12px;background:var(--surface);padding:10px 12px;font-size:14px;">
+                    .map(({ vehicle, status }) => {
+                      const overdue = status.alertLevel === "urgent";
+                      return `
+                    <a href="#/vehicles/${vehicle.id}" style="display:flex;align-items:center;justify-content:space-between;gap:8px;border-radius:12px;background:${overdue ? "var(--danger-bg)" : "var(--background)"};padding:10px 12px;font-size:14px;">
                       <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
                         ${ALERT_LEVEL_ICON[status.alertLevel]} <strong>${vehicle.brand} ${vehicle.model}</strong>
                         <span style="color:var(--muted);"> — ${vehicle.plate}</span>
                       </span>
-                      <span style="flex-shrink:0;font-weight:600;color:${status.alertLevel === "urgent" ? "var(--danger)" : "var(--warning)"};">
-                        ${status.remainingKm <= 0 ? `Excedido ${formatDistance(Math.abs(status.remainingKm))}` : `Faltan ${formatDistance(status.remainingKm)}`}
+                      <span style="flex-shrink:0;font-weight:600;color:${overdue ? "var(--danger)" : "var(--primary-600)"};">
+                        ${overdue ? `Excedido ${formatDistance(Math.abs(status.remainingKm))}` : `Faltan ${formatDistance(status.remainingKm)}`}
                       </span>
-                    </a>`
-                    )
+                    </a>`;
+                    })
                     .join("")}
                 </div>
               </div>`
