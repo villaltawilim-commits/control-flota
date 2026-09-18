@@ -1,6 +1,5 @@
 import { subscribe } from "./lib/store.js";
 import { auth, signOut } from "./lib/firebase.js";
-import { expireStaleOpenRoutes } from "./lib/data.js";
 import { renderLogin } from "./login.js";
 import { renderShell } from "./shell.js";
 
@@ -45,10 +44,6 @@ subscribe((s) => {
 
   if (!shellMounted) {
     shellMounted = true;
-    // Run the stale-route sweep before the first paint so a route list
-    // opened right away already reflects any overnight expirations.
-    expireStaleOpenRoutes()
-      .catch(() => {})
-      .then(() => renderShell(root, s.profile));
+    renderShell(root, s.profile);
   }
 });

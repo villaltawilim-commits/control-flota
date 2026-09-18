@@ -141,6 +141,13 @@ export async function createRoute(data, user) {
     throw new Error(`El millaje de salida no puede ser menor al último registrado (${vehicle.currentMileage} mi).`);
   }
 
+  const openSnap = await getDocs(
+    query(collection(db, "routes"), where("vehicleId", "==", data.vehicleId), where("status", "==", "OPEN"), fsLimit(1))
+  );
+  if (!openSnap.empty) {
+    throw new Error("Este vehículo ya tiene una ruta abierta. Debe cerrarse antes de iniciar una nueva.");
+  }
+
   const batch = writeBatch(db);
   const routeRef = doc(collection(db, "routes"));
   batch.set(routeRef, {
@@ -174,6 +181,7 @@ export async function closeRoute(id, data, user) {
   if (!routeSnap.exists()) throw new Error("Ruta no encontrada.");
   const route = routeSnap.data();
   if (route.status === "CLOSED") throw new Error("Esta ruta ya fue cerrada.");
+  if (route.driverId !== user.uid) throw new Error("Solo el usuario que abrió esta ruta puede cerrarla aquí.");
   if (data.arrivalMileage < route.departureMileage) {
     throw new Error(`El millaje de entrada no puede ser menor al de salida (${route.departureMileage} mi).`);
   }
@@ -210,15 +218,7 @@ export async function updateRoute(id, data, user) {
   const distanceKm = arrivalMileage != null ? arrivalMileage - data.departureMileage : null;
 
   const routeRef = doc(db, "routes", id);
-  let status = "OPEN";
-  if (arrivalMileage != null) {
-    status = "CLOSED";
-  } else {
-    const existing = await getDoc(routeRef);
-    // Preserve EXPIRED when clearing the arrival fields instead of quietly
-    // reopening a route whose day already cut off.
-    if (existing.exists() && existing.data().status === "EXPIRED") status = "EXPIRED";
-  }
+  const status = arrivalMileage != null ? "CLOSED" : "OPEN";
 
   await updateDoc(routeRef, {
     date: toTimestamp(dateStr),
@@ -235,23 +235,6 @@ export async function updateRoute(id, data, user) {
     updatedAt: serverTimestamp(),
   });
   await logAudit("Route", id, "UPDATE", user.uid, data);
-}
-
-// Any route still OPEN once its day has passed gets force-closed as EXPIRED
-// (no arrival data — the driver never checked back in). There's no server/
-// cron here, so this runs lazily whenever someone loads the app; whoever
-// triggers it only needs "routes.create", matching who can normally close a
-// same-day route. Fixing an EXPIRED route afterward needs "routes.update".
-export async function expireStaleOpenRoutes() {
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-  const snap = await getDocs(query(collection(db, "routes"), where("status", "==", "OPEN")));
-  const stale = snap.docs.filter((d) => (d.data().date?.toMillis?.() ?? Infinity) < todayStart.getTime());
-  if (stale.length === 0) return;
-
-  const batch = writeBatch(db);
-  stale.forEach((d) => batch.update(d.ref, { status: "EXPIRED", updatedAt: serverTimestamp() }));
-  await batch.commit();
 }
 
 export async function deleteRoute(id, user) {

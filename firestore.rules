@@ -52,11 +52,10 @@ service cloud.firestore {
     match /routes/{id} {
       allow read: if isActiveUser();
       allow create: if can('routes', 'create');
-      // "create" permission is enough to close a still-OPEN route the same
-      // day (finishing what you started) or to force it to EXPIRED (the
-      // client-side midnight sweep). Touching a route that is already
-      // EXPIRED or CLOSED is editing historical data and requires "update".
-      allow update: if (can('routes', 'create') && resource.data.status == 'OPEN')
+      // "create" permission is enough to close your own still-OPEN route
+      // (finishing what you started). Closing someone else's route, or
+      // editing a route that's already CLOSED, requires "update".
+      allow update: if (can('routes', 'create') && resource.data.status == 'OPEN' && resource.data.driverId == request.auth.uid)
         || can('routes', 'update');
       allow delete: if can('routes', 'delete');
     }

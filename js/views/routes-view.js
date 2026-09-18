@@ -9,7 +9,6 @@ import { destinationSelectHtml, wireDestinationSelect, resolveDestinationValue }
 
 const STATUS_BADGE = {
   OPEN: { cls: "warning", label: "En curso" },
-  EXPIRED: { cls: "urgent", label: "Vencida" },
   CLOSED: { cls: "normal", label: "Cerrada" },
 };
 
@@ -165,11 +164,11 @@ export async function renderRouteDetail(container, params) {
   const costTotal = fuelLogs.reduce((s, f) => s + f.total, 0);
   const costPerKm = route.distanceKm && route.distanceKm > 0 ? costTotal / route.distanceKm : null;
 
-  // Closing an OPEN route the same day only needs "create" (it's finishing
-  // what you started). Completing an EXPIRED one is editing historical data,
-  // so it requires the stronger "update" permission.
-  const showCloseForm = route.status === "OPEN" && canRegisterFuel;
-  const showFixExpiredForm = route.status === "EXPIRED" && canUpdate;
+  // Solo quien abrió la ruta puede cerrarla desde aquí. Un editor/admin con
+  // permiso de "update" siempre puede corregirla desde la página de editar.
+  const isDriver = route.driverId === state.user.uid;
+  const showCloseForm = route.status === "OPEN" && canRegisterFuel && isDriver;
+  const showOtherDriverNotice = route.status === "OPEN" && !isDriver;
 
   container.innerHTML = `
     <div class="page">
@@ -181,10 +180,9 @@ export async function renderRouteDetail(container, params) {
       })}
       <div class="content">
         ${
-          route.status === "EXPIRED"
-            ? `<div class="card" style="background:var(--danger-bg);border-color:rgba(217,45,32,0.2);color:var(--danger);">
-                <p style="font-weight:700;">🚨 Ruta vencida</p>
-                <p style="margin-top:4px;font-size:14px;">Esta ruta quedó abierta y se cerró automáticamente sin kilometraje de entrada.${showFixExpiredForm ? " Complétala abajo." : " Necesitas permiso de modificar rutas para completarla."}</p>
+          showOtherDriverNotice
+            ? `<div class="card" style="background:var(--warning-bg, #fff7e6);color:var(--muted);">
+                <p style="margin:0;font-size:14px;">Esta ruta sigue abierta. Solo <strong>${driver?.name || "el usuario que la inició"}</strong> puede cerrarla.${canUpdate ? " Si es necesario, puedes corregirla desde Editar." : ""}</p>
               </div>`
             : ""
         }
@@ -218,14 +216,14 @@ export async function renderRouteDetail(container, params) {
 
         ${canRegisterFuel ? `<a href="#/fuel/new?routeId=${route.id}&vehicleId=${route.vehicleId}" class="btn" style="background:var(--primary-50);color:var(--primary-700);border:1px solid var(--primary-500);">⛽ Registrar combustible de esta ruta</a>` : ""}
 
-        ${showCloseForm || showFixExpiredForm ? closeRouteFormHtml(route, route.status === "EXPIRED") : ""}
+        ${showCloseForm ? closeRouteFormHtml(route) : ""}
 
         ${canDelete ? `<button id="delete-route" class="btn btn-danger-outline btn-full">${icon("trash", 16)} Eliminar ruta</button>` : ""}
       </div>
     </div>
   `;
 
-  if (showCloseForm || showFixExpiredForm) {
+  if (showCloseForm) {
     const closeForm = document.getElementById("close-route-form");
     closeForm.addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -246,7 +244,7 @@ export async function renderRouteDetail(container, params) {
       } catch (err) {
         errorBox.innerHTML = `<p class="banner-error">${err.message}</p>`;
         btn.disabled = false;
-        btn.textContent = route.status === "EXPIRED" ? "Completar ruta" : "Cerrar ruta";
+        btn.textContent = "Cerrar ruta";
       }
     });
   }
@@ -262,18 +260,18 @@ export async function renderRouteDetail(container, params) {
   });
 }
 
-function closeRouteFormHtml(route, isExpired) {
+function closeRouteFormHtml(route) {
   return `
     <form id="close-route-form" class="card" style="display:flex;flex-direction:column;gap:16px;">
-      <p style="font-weight:600;">${isExpired ? "Completar ruta vencida" : "Cerrar ruta"}</p>
+      <p style="font-weight:600;">Cerrar ruta</p>
       <div id="close-form-error"></div>
       <div class="form-grid-2">
-        <div class="field"><label>Hora de entrada</label><input name="arrivalTime" type="time" value="${isExpired ? "" : nowTimeInput()}"></div>
+        <div class="field"><label>Hora de entrada</label><input name="arrivalTime" type="time" value="${nowTimeInput()}"></div>
         <div class="field"><label>Millaje de entrada (mi)</label><input name="arrivalMileage" type="number" value="${route.departureMileage}" required></div>
       </div>
       <p style="margin-top:-8px;font-size:12px;color:var(--muted);">Salida: ${route.departureMileage.toLocaleString("es-GT")} mi</p>
       <div class="field"><label>Observaciones</label><textarea name="observations" placeholder="Opcional"></textarea></div>
-      <button type="submit" class="btn btn-primary btn-full">${isExpired ? "Completar ruta" : "Cerrar ruta"}</button>
+      <button type="submit" class="btn btn-primary btn-full">Cerrar ruta</button>
     </form>
   `;
 }
