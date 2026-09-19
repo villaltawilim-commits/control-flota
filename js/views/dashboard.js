@@ -106,11 +106,17 @@ function maybeShowRouteSuggestion(suggestion) {
     /* ignore storage access errors */
   }
 
-  const { vehicle, status } = suggestion;
+  const { vehicle, status, daysUntilDue } = suggestion;
   const remainingText =
     status.remainingKm >= 0
       ? `le faltan ${formatDistance(status.remainingKm)} para su próximo servicio`
       : `aunque ya lleva ${formatDistance(Math.abs(status.remainingKm))} de más desde su último servicio, es el que menos atrasado está`;
+  const paceText =
+    Math.abs(daysUntilDue) >= 1e9
+      ? "sin viajes recientes registrados para estimar su ritmo de uso"
+      : daysUntilDue >= 0
+        ? `a su ritmo de uso de los últimos 30 días, tardaría unos ${Math.round(daysUntilDue)} días en llegar a ese punto`
+        : `a su ritmo de uso de los últimos 30 días, ya debería haber llegado a ese punto hace unos ${Math.round(Math.abs(daysUntilDue))} días`;
 
   const overlay = openModal(`
     <div class="modal-header">
@@ -119,7 +125,7 @@ function maybeShowRouteSuggestion(suggestion) {
     </div>
     <p style="margin:0 0 16px;font-size:14px;color:var(--muted);">
       Se sugiere mandar a ruta hoy a <strong>${vehicle.brand} ${vehicle.model} · ${vehicle.plate}</strong>.
-      Es el vehículo con más margen antes de su próximo servicio entre los disponibles: ${remainingText}.
+      Entre los vehículos disponibles (no están ya en ruta), es el que tiene más margen estimado en días antes de su próximo servicio: ${remainingText}, y ${paceText}.
     </p>
     <div style="display:flex;flex-direction:column;gap:10px;">
       <button type="button" id="suggestion-go" class="btn btn-primary btn-full">Ir a nueva ruta</button>
