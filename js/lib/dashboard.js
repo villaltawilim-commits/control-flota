@@ -87,11 +87,13 @@ export async function getDashboardData() {
   // rarely-used vehicle with a smaller buffer can still rank ahead of one
   // that's about to hit its limit within days at its current usage rate.
   // Remaining mileage is the tie-breaker when both are without recent usage.
+  // Even if every eligible vehicle is already overdue for service, still
+  // suggest the least-bad one (the fleet may simply not have a clean option
+  // today) — only skip the suggestion when literally nothing is available.
   const eligibleForRoute = statuses.filter((s) => s.vehicle.active && !busyVehicleIds.has(s.vehicle.id));
-  const routeSuggestion =
-    eligibleForRoute.length >= 2
-      ? eligibleForRoute.slice().sort((a, b) => b.daysUntilDue - a.daysUntilDue || b.status.remainingKm - a.status.remainingKm)[0]
-      : null;
+  const routeSuggestion = eligibleForRoute.length
+    ? eligibleForRoute.slice().sort((a, b) => b.daysUntilDue - a.daysUntilDue || b.status.remainingKm - a.status.remainingKm)[0]
+    : null;
 
   const sum = (arr, key) => arr.reduce((s, x) => s + (Number(x[key]) || 0), 0);
 
