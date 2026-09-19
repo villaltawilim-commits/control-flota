@@ -239,6 +239,26 @@ table.report tbody tr { border-top: 1px solid var(--border); }
 .toast.error { background: var(--danger); color: white; }
 .toast.success { background: var(--foreground); color: white; }
 
+/* ---------- Modal ---------- */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 150;
+  background: rgba(16,24,40,0.5);
+  display: flex; align-items: flex-end; justify-content: center;
+  padding: 0;
+}
+.modal-card {
+  width: 100%; max-width: 420px; max-height: 90dvh; overflow-y: auto;
+  background: var(--surface); border-radius: 20px 20px 0 0;
+  padding: 20px 16px calc(20px + env(safe-area-inset-bottom));
+  box-shadow: 0 -8px 24px rgba(16,24,40,0.15);
+}
+.modal-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
+.modal-close-btn { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 999px; border: none; background: var(--background); color: var(--muted); flex-shrink: 0; cursor: pointer; }
+@media (min-width: 768px) {
+  .modal-overlay { align-items: center; padding: 24px; }
+  .modal-card { border-radius: 20px; padding: 24px; }
+}
+
 /* ---------- Login ---------- */
 .login-screen { display: flex; min-height: 100dvh; flex-direction: column; align-items: center; justify-content: center; padding: 24px; }
 .login-card { width: 100%; max-width: 360px; }

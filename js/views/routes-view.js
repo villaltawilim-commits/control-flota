@@ -2,7 +2,7 @@ import { state } from "../lib/store.js";
 import { can } from "../lib/permissions.js";
 import * as data from "../lib/data.js";
 import { formatCurrency, formatDate, formatDateTime, formatDistance, todayInput, nowTimeInput } from "../lib/format.js";
-import { pageHeaderHtml, emptyStateHtml, toast, confirmAction } from "../lib/ui.js";
+import { pageHeaderHtml, emptyStateHtml, toast, confirmAction, openModal, closeModal } from "../lib/ui.js";
 import { icon } from "../lib/icons.js";
 import { navigate, currentQuery } from "../lib/router.js";
 import { destinationSelectHtml, wireDestinationSelect, resolveDestinationValue } from "../lib/destinations.js";
@@ -174,7 +174,7 @@ export async function renderRouteDetail(container, params) {
         subtitle: vehicle ? `${vehicle.brand} ${vehicle.model} · ${vehicle.plate}` : "",
         backHref: "/routes",
         actionHtml: showCloseForm
-          ? `<button type="button" id="scroll-to-close" class="back-btn" style="width:auto;padding:0 14px;border-radius:999px;white-space:nowrap;font-size:13px;font-weight:600;color:var(--primary-700);border-color:var(--primary-500);">Cierre de ruta</button>`
+          ? `<button type="button" id="open-close-modal" class="back-btn" style="width:auto;padding:0 14px;border-radius:999px;white-space:nowrap;font-size:13px;font-weight:600;color:var(--primary-700);border-color:var(--primary-500);">Cierre de ruta</button>`
           : canUpdate
             ? `<a href="#/routes/${route.id}/edit" class="back-btn">${icon("edit", 16)}</a>`
             : "",
@@ -217,23 +217,19 @@ export async function renderRouteDetail(container, params) {
 
         ${canRegisterFuel ? `<a href="#/fuel/new?routeId=${route.id}&vehicleId=${route.vehicleId}" class="btn" style="background:var(--primary-50);color:var(--primary-700);border:1px solid var(--primary-500);">⛽ Registrar combustible de esta ruta</a>` : ""}
 
-        ${showCloseForm ? closeRouteFormHtml(route) : ""}
-
         ${canDelete ? `<button id="delete-route" class="btn btn-danger-outline btn-full">${icon("trash", 16)} Eliminar ruta</button>` : ""}
       </div>
     </div>
   `;
 
-  document.getElementById("scroll-to-close")?.addEventListener("click", () => {
-    document.getElementById("close-route-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
-    document.querySelector('#close-route-form input[name="arrivalMileage"]')?.focus();
-  });
-
-  if (showCloseForm) {
-    const closeForm = document.getElementById("close-route-form");
+  document.getElementById("open-close-modal")?.addEventListener("click", () => {
+    const overlay = openModal(closeRouteModalHtml(route, vehicle));
+    const closeForm = overlay.querySelector("#close-route-form");
+    overlay.querySelector("#modal-close-x")?.addEventListener("click", () => closeModal());
+    closeForm.querySelector('input[name="arrivalMileage"]').focus();
     closeForm.addEventListener("submit", async (e) => {
       e.preventDefault();
-      const errorBox = document.getElementById("close-form-error");
+      const errorBox = overlay.querySelector("#close-form-error");
       errorBox.innerHTML = "";
       const fd = new FormData(closeForm);
       const payload = {
@@ -246,14 +242,16 @@ export async function renderRouteDetail(container, params) {
       btn.textContent = "Guardando...";
       try {
         await data.closeRoute(route.id, payload, state.user);
+        closeModal();
+        toast("Ruta cerrada correctamente.", "success");
         renderRouteDetail(container, params);
       } catch (err) {
         errorBox.innerHTML = `<p class="banner-error">${err.message}</p>`;
         btn.disabled = false;
-        btn.textContent = "Cerrar ruta";
+        btn.textContent = "Guardar";
       }
     });
-  }
+  });
 
   document.getElementById("delete-route")?.addEventListener("click", async () => {
     if (!confirmAction("¿Eliminar esta ruta? Esta acción no se puede deshacer.")) return;
@@ -266,15 +264,21 @@ export async function renderRouteDetail(container, params) {
   });
 }
 
-function closeRouteFormHtml(route) {
+function closeRouteModalHtml(route, vehicle) {
   return `
-    <form id="close-route-form" class="card" style="display:flex;flex-direction:column;gap:16px;">
-      <p style="font-weight:600;">Cierre de ruta</p>
+    <div class="modal-header">
+      <p style="font-weight:700;font-size:16px;margin:0;">Cierre de ruta</p>
+      <button type="button" id="modal-close-x" class="modal-close-btn" aria-label="Cerrar">${icon("close", 16)}</button>
+    </div>
+    <p style="margin:0 0 16px;font-size:14px;color:var(--muted);">
+      Ingresa el millaje/kms actual del vehículo <strong>${vehicle ? vehicle.plate : ""}</strong>.
+    </p>
+    <form id="close-route-form" style="display:flex;flex-direction:column;gap:16px;">
       <div id="close-form-error"></div>
-      <div class="field"><label>Millaje de entrada (mi)</label><input name="arrivalMileage" type="number" value="${route.departureMileage}" required></div>
+      <div class="field"><label>Millaje / Kms actual (mi)</label><input name="arrivalMileage" type="number" value="${route.departureMileage}" required></div>
       <p style="margin-top:-8px;font-size:12px;color:var(--muted);">Salida: ${route.departureMileage.toLocaleString("es-GT")} mi · La hora de entrada se registra automáticamente.</p>
       <div class="field"><label>Observaciones</label><textarea name="observations" placeholder="Opcional"></textarea></div>
-      <button type="submit" class="btn btn-primary btn-full">Cerrar ruta</button>
+      <button type="submit" class="btn btn-primary btn-full">Guardar</button>
     </form>
   `;
 }
