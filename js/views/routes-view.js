@@ -232,9 +232,14 @@ export async function renderRouteDetail(container, params) {
       const errorBox = overlay.querySelector("#close-form-error");
       errorBox.innerHTML = "";
       const fd = new FormData(closeForm);
+      const arrivalMileageRaw = fd.get("arrivalMileage");
+      if (arrivalMileageRaw === null || arrivalMileageRaw.trim() === "") {
+        errorBox.innerHTML = `<p class="banner-error">Ingresa el millaje/kms actual del vehículo.</p>`;
+        return;
+      }
       const payload = {
         arrivalTime: nowTimeInput(),
-        arrivalMileage: Number(fd.get("arrivalMileage")),
+        arrivalMileage: Number(arrivalMileageRaw),
         observations: fd.get("observations").trim(),
       };
       const btn = closeForm.querySelector("button[type=submit]");
@@ -275,7 +280,7 @@ function closeRouteModalHtml(route, vehicle) {
     </p>
     <form id="close-route-form" style="display:flex;flex-direction:column;gap:16px;">
       <div id="close-form-error"></div>
-      <div class="field"><label>Millaje / Kms actual (mi)</label><input name="arrivalMileage" type="number" value="${route.departureMileage}" required></div>
+      <div class="field"><label>Millaje / Kms actual (mi)</label><input name="arrivalMileage" type="number" placeholder="Ej: ${route.departureMileage}" required></div>
       <p style="margin-top:-8px;font-size:12px;color:var(--muted);">Salida: ${route.departureMileage.toLocaleString("es-GT")} mi · La hora de entrada se registra automáticamente.</p>
       <div class="field"><label>Observaciones</label><textarea name="observations" placeholder="Opcional"></textarea></div>
       <button type="submit" class="btn btn-primary btn-full">Guardar</button>
