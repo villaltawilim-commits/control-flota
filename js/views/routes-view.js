@@ -88,11 +88,8 @@ export async function renderRouteNew(container) {
           <label>Ruta / Destino</label>
           ${destinationSelectHtml({ name: "destination" })}
         </div>
-        <div class="form-grid-2">
-          <div class="field"><label>Hora de salida</label><input name="departureTime" type="time" value="${nowTimeInput()}"></div>
-          <div class="field"><label>Millaje de salida (mi)</label><input name="departureMileage" id="departure-mileage" type="number" value="${vehicles[0].currentMileage}" required></div>
-        </div>
-        <p id="mileage-hint" class="field" style="margin-top:-8px;font-size:12px;color:var(--muted);">Último registrado: ${vehicles[0].currentMileage.toLocaleString("es-GT")} mi</p>
+        <div class="field"><label>Millaje de salida (mi)</label><input name="departureMileage" id="departure-mileage" type="number" value="${vehicles[0].currentMileage}" required></div>
+        <p id="mileage-hint" class="field" style="margin-top:-8px;font-size:12px;color:var(--muted);">Último registrado: ${vehicles[0].currentMileage.toLocaleString("es-GT")} mi · La hora de salida se registra automáticamente.</p>
         <div class="field"><label>Observaciones</label><textarea name="observations" placeholder="Opcional"></textarea></div>
         <button type="submit" class="btn btn-primary btn-full">Iniciar ruta</button>
       </form>
@@ -105,7 +102,7 @@ export async function renderRouteNew(container) {
   vehicleSelect.addEventListener("change", () => {
     const opt = vehicleSelect.selectedOptions[0];
     document.getElementById("departure-mileage").value = opt.dataset.mileage;
-    document.getElementById("mileage-hint").textContent = `Último registrado: ${Number(opt.dataset.mileage).toLocaleString("es-GT")} mi`;
+    document.getElementById("mileage-hint").textContent = `Último registrado: ${Number(opt.dataset.mileage).toLocaleString("es-GT")} mi · La hora de salida se registra automáticamente.`;
   });
 
   const form = document.getElementById("route-form");
@@ -123,7 +120,7 @@ export async function renderRouteNew(container) {
       date: fd.get("date"),
       vehicleId: fd.get("vehicleId"),
       destination,
-      departureTime: fd.get("departureTime"),
+      departureTime: nowTimeInput(),
       departureMileage: Number(fd.get("departureMileage")),
       observations: fd.get("observations").trim(),
     };
@@ -176,7 +173,11 @@ export async function renderRouteDetail(container, params) {
         title: route.destination,
         subtitle: vehicle ? `${vehicle.brand} ${vehicle.model} · ${vehicle.plate}` : "",
         backHref: "/routes",
-        actionHtml: canUpdate ? `<a href="#/routes/${route.id}/edit" class="back-btn">${icon("edit", 16)}</a>` : "",
+        actionHtml: showCloseForm
+          ? `<button type="button" id="scroll-to-close" class="back-btn" style="width:auto;padding:0 14px;border-radius:999px;white-space:nowrap;font-size:13px;font-weight:600;color:var(--primary-700);border-color:var(--primary-500);">Cierre de ruta</button>`
+          : canUpdate
+            ? `<a href="#/routes/${route.id}/edit" class="back-btn">${icon("edit", 16)}</a>`
+            : "",
       })}
       <div class="content">
         ${
@@ -223,6 +224,11 @@ export async function renderRouteDetail(container, params) {
     </div>
   `;
 
+  document.getElementById("scroll-to-close")?.addEventListener("click", () => {
+    document.getElementById("close-route-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    document.querySelector('#close-route-form input[name="arrivalMileage"]')?.focus();
+  });
+
   if (showCloseForm) {
     const closeForm = document.getElementById("close-route-form");
     closeForm.addEventListener("submit", async (e) => {
@@ -231,7 +237,7 @@ export async function renderRouteDetail(container, params) {
       errorBox.innerHTML = "";
       const fd = new FormData(closeForm);
       const payload = {
-        arrivalTime: fd.get("arrivalTime"),
+        arrivalTime: nowTimeInput(),
         arrivalMileage: Number(fd.get("arrivalMileage")),
         observations: fd.get("observations").trim(),
       };
@@ -263,13 +269,10 @@ export async function renderRouteDetail(container, params) {
 function closeRouteFormHtml(route) {
   return `
     <form id="close-route-form" class="card" style="display:flex;flex-direction:column;gap:16px;">
-      <p style="font-weight:600;">Cerrar ruta</p>
+      <p style="font-weight:600;">Cierre de ruta</p>
       <div id="close-form-error"></div>
-      <div class="form-grid-2">
-        <div class="field"><label>Hora de entrada</label><input name="arrivalTime" type="time" value="${nowTimeInput()}"></div>
-        <div class="field"><label>Millaje de entrada (mi)</label><input name="arrivalMileage" type="number" value="${route.departureMileage}" required></div>
-      </div>
-      <p style="margin-top:-8px;font-size:12px;color:var(--muted);">Salida: ${route.departureMileage.toLocaleString("es-GT")} mi</p>
+      <div class="field"><label>Millaje de entrada (mi)</label><input name="arrivalMileage" type="number" value="${route.departureMileage}" required></div>
+      <p style="margin-top:-8px;font-size:12px;color:var(--muted);">Salida: ${route.departureMileage.toLocaleString("es-GT")} mi · La hora de entrada se registra automáticamente.</p>
       <div class="field"><label>Observaciones</label><textarea name="observations" placeholder="Opcional"></textarea></div>
       <button type="submit" class="btn btn-primary btn-full">Cerrar ruta</button>
     </form>
@@ -303,13 +306,14 @@ export async function renderRouteEdit(container, params) {
           ${destinationSelectHtml({ name: "destination", selectedValue: route.destination })}
         </div>
         <div class="form-grid-2">
-          <div class="field"><label>Hora de salida</label><input name="departureTime" type="time" value="${timeOf(route.departureTime)}"></div>
+          <div class="field"><label>Hora de salida</label><p class="info-value" style="margin:0;padding:12px 0;">${timeOf(route.departureTime) || "—"}</p></div>
           <div class="field"><label>Mi de salida</label><input name="departureMileage" type="number" value="${route.departureMileage}" required></div>
         </div>
         <div class="form-grid-2">
-          <div class="field"><label>Hora de entrada</label><input name="arrivalTime" type="time" value="${timeOf(route.arrivalTime)}"></div>
+          <div class="field"><label>Hora de entrada</label><p class="info-value" style="margin:0;padding:12px 0;">${timeOf(route.arrivalTime) || "Pendiente"}</p></div>
           <div class="field"><label>Mi de entrada</label><input name="arrivalMileage" type="number" value="${route.arrivalMileage ?? ""}"></div>
         </div>
+        <p style="margin-top:-8px;font-size:12px;color:var(--muted);">Las horas se registran automáticamente y no se pueden modificar.</p>
         <div class="field"><label>Observaciones</label><textarea name="observations">${route.observations || ""}</textarea></div>
         <button type="submit" class="btn btn-primary btn-full">Guardar cambios</button>
       </form>
@@ -329,14 +333,21 @@ export async function renderRouteEdit(container, params) {
       errorBox.innerHTML = `<p class="banner-error">Selecciona o escribe un destino.</p>`;
       return;
     }
+    const newArrivalMileage = fd.get("arrivalMileage") ? Number(fd.get("arrivalMileage")) : null;
+    let arrivalTime = "";
+    if (newArrivalMileage != null) {
+      // Si ya tenía hora de entrada, se conserva; si se está cerrando recién
+      // desde aquí, se registra la hora actual (nunca es editable a mano).
+      arrivalTime = route.arrivalMileage != null ? timeOf(route.arrivalTime) : nowTimeInput();
+    }
     const payload = {
       date: fd.get("date"),
       vehicleId: fd.get("vehicleId"),
       destination,
-      departureTime: fd.get("departureTime"),
+      departureTime: timeOf(route.departureTime),
       departureMileage: Number(fd.get("departureMileage")),
-      arrivalTime: fd.get("arrivalTime"),
-      arrivalMileage: fd.get("arrivalMileage") ? Number(fd.get("arrivalMileage")) : null,
+      arrivalTime,
+      arrivalMileage: newArrivalMileage,
       observations: fd.get("observations").trim(),
     };
     const btn = form.querySelector("button[type=submit]");
