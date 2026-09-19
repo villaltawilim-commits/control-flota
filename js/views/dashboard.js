@@ -3,9 +3,6 @@ import { formatCurrency, formatDistance, formatNumber } from "../lib/format.js";
 import { ALERT_LEVEL_ICON } from "../lib/vehicle-status.js";
 import { state } from "../lib/store.js";
 import { can } from "../lib/permissions.js";
-import { openModal, closeModal } from "../lib/ui.js";
-import { icon } from "../lib/icons.js";
-import { navigate } from "../lib/router.js";
 
 export async function renderDashboard(container) {
   container.innerHTML = `<div class="center-page"><div class="spinner"></div></div>`;
@@ -27,6 +24,8 @@ export async function renderDashboard(container) {
           <h1 style="font-size:20px;font-weight:700;margin:0;">Hola, ${firstName}</h1>
           <p style="color:var(--muted);font-size:14px;margin:2px 0 0;">Resumen general de la flota</p>
         </div>
+
+        ${routeSuggestionCardHtml(data.routeSuggestion)}
 
         ${
           data.alerts.length
@@ -92,19 +91,10 @@ export async function renderDashboard(container) {
       </div>
     </div>
   `;
-
-  maybeShowRouteSuggestion(data.routeSuggestion);
 }
 
-function maybeShowRouteSuggestion(suggestion) {
-  if (!suggestion || !can(state.profile, "routes", "create")) return;
-
-  const todayStr = new Date().toISOString().slice(0, 10);
-  try {
-    if (localStorage.getItem("routeSuggestionShownDate") === todayStr) return;
-  } catch {
-    /* ignore storage access errors */
-  }
+function routeSuggestionCardHtml(suggestion) {
+  if (!suggestion || !can(state.profile, "routes", "create")) return "";
 
   const { vehicle, status, daysUntilDue } = suggestion;
   const remainingText =
@@ -118,31 +108,14 @@ function maybeShowRouteSuggestion(suggestion) {
         ? `a su ritmo de uso de los últimos 30 días, tardaría unos ${Math.round(daysUntilDue)} días en llegar a ese punto`
         : `a su ritmo de uso de los últimos 30 días, ya debería haber llegado a ese punto hace unos ${Math.round(Math.abs(daysUntilDue))} días`;
 
-  const overlay = openModal(`
-    <div class="modal-header">
-      <p style="font-weight:700;font-size:16px;margin:0;">🚚 Sugerencia de ruta</p>
-      <button type="button" id="modal-close-x" class="modal-close-btn" aria-label="Cerrar">${icon("close", 16)}</button>
+  return `
+    <div class="card" style="background:var(--primary-50);border-color:var(--primary-100);">
+      <p style="font-weight:700;margin:0 0 6px;">🚚 Sugerencia de ruta</p>
+      <p style="margin:0 0 12px;font-size:14px;color:var(--muted);">
+        Se sugiere mandar a ruta hoy a <strong>${vehicle.brand} ${vehicle.model} · ${vehicle.plate}</strong>.
+        Entre los vehículos disponibles (no están ya en ruta), es el que tiene más margen estimado en días antes de su próximo servicio: ${remainingText}, y ${paceText}.
+      </p>
+      <a href="#/routes/new?vehicleId=${vehicle.id}" class="btn btn-primary btn-full">Ir a nueva ruta</a>
     </div>
-    <p style="margin:0 0 16px;font-size:14px;color:var(--muted);">
-      Se sugiere mandar a ruta hoy a <strong>${vehicle.brand} ${vehicle.model} · ${vehicle.plate}</strong>.
-      Entre los vehículos disponibles (no están ya en ruta), es el que tiene más margen estimado en días antes de su próximo servicio: ${remainingText}, y ${paceText}.
-    </p>
-    <div style="display:flex;flex-direction:column;gap:10px;">
-      <button type="button" id="suggestion-go" class="btn btn-primary btn-full">Ir a nueva ruta</button>
-      <button type="button" id="suggestion-dismiss" class="btn btn-secondary btn-full">Ahora no</button>
-    </div>
-  `);
-
-  try {
-    localStorage.setItem("routeSuggestionShownDate", todayStr);
-  } catch {
-    /* ignore storage access errors */
-  }
-
-  overlay.querySelector("#modal-close-x").addEventListener("click", () => closeModal());
-  overlay.querySelector("#suggestion-dismiss").addEventListener("click", () => closeModal());
-  overlay.querySelector("#suggestion-go").addEventListener("click", () => {
-    closeModal();
-    navigate(`/routes/new?vehicleId=${vehicle.id}`);
-  });
+  `;
 }
