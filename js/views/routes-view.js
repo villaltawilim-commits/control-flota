@@ -88,7 +88,7 @@ export async function renderRouteNew(container) {
           <label>Ruta / Destino</label>
           ${destinationSelectHtml({ name: "destination" })}
         </div>
-        <div class="field"><label>Millaje de salida (mi)</label><input name="departureMileage" id="departure-mileage" type="number" value="${vehicles[0].currentMileage}" required></div>
+        <div class="field"><label>Millaje de salida (mi)</label><input name="departureMileage" id="departure-mileage" type="number" min="${vehicles[0].currentMileage}" value="${vehicles[0].currentMileage}" required></div>
         <p id="mileage-hint" class="field" style="margin-top:-8px;font-size:12px;color:var(--muted);">Último registrado: ${vehicles[0].currentMileage.toLocaleString("es-GT")} mi · La hora de salida se registra automáticamente.</p>
         <div class="field"><label>Observaciones</label><textarea name="observations" placeholder="Opcional"></textarea></div>
         <button type="submit" class="btn btn-primary btn-full">Iniciar ruta</button>
@@ -101,7 +101,9 @@ export async function renderRouteNew(container) {
   const vehicleSelect = document.getElementById("vehicle-select");
   vehicleSelect.addEventListener("change", () => {
     const opt = vehicleSelect.selectedOptions[0];
-    document.getElementById("departure-mileage").value = opt.dataset.mileage;
+    const mileageInput = document.getElementById("departure-mileage");
+    mileageInput.min = opt.dataset.mileage;
+    mileageInput.value = opt.dataset.mileage;
     document.getElementById("mileage-hint").textContent = `Último registrado: ${Number(opt.dataset.mileage).toLocaleString("es-GT")} mi · La hora de salida se registra automáticamente.`;
   });
 
@@ -280,7 +282,7 @@ function closeRouteModalHtml(route, vehicle) {
     </p>
     <form id="close-route-form" style="display:flex;flex-direction:column;gap:16px;">
       <div id="close-form-error"></div>
-      <div class="field"><label>Millaje / Kms actual (mi)</label><input name="arrivalMileage" type="number" placeholder="Ej: ${route.departureMileage}" required></div>
+      <div class="field"><label>Millaje / Kms actual (mi)</label><input name="arrivalMileage" type="number" min="${route.departureMileage}" placeholder="Ej: ${route.departureMileage}" required></div>
       <p style="margin-top:-8px;font-size:12px;color:var(--muted);">Salida: ${route.departureMileage.toLocaleString("es-GT")} mi · La hora de entrada se registra automáticamente.</p>
       <div class="field"><label>Observaciones</label><textarea name="observations" placeholder="Opcional"></textarea></div>
       <button type="submit" class="btn btn-primary btn-full">Guardar</button>
