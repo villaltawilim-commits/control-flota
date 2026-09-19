@@ -25,15 +25,17 @@ export async function getDashboardData() {
   const todayStart = Timestamp.fromDate(startOfDay(now));
   const todayEnd = Timestamp.fromDate(endOfDay(now));
 
-  const [vehiclesSnap, fuelMonthSnap, routesMonthSnap] = await Promise.all([
+  const [vehiclesSnap, fuelMonthSnap, routesMonthSnap, openRoutesSnap] = await Promise.all([
     getDocs(collection(db, "vehicles")),
     getDocs(query(collection(db, "fuelLogs"), where("date", ">=", monthStart), where("date", "<=", monthEnd), fsLimit(1000))),
     getDocs(query(collection(db, "routes"), where("date", ">=", monthStart), where("date", "<=", monthEnd), fsLimit(1000))),
+    getDocs(query(collection(db, "routes"), where("status", "==", "OPEN"))),
   ]);
 
   const vehicles = vehiclesSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
   const fuelMonth = fuelMonthSnap.docs.map((d) => d.data());
   const routesMonth = routesMonthSnap.docs.map((d) => d.data());
+  const busyVehicleIds = new Set(openRoutesSnap.docs.map((d) => d.data().vehicleId));
 
   const todayMs = { start: todayStart.toMillis(), end: todayEnd.toMillis() };
   const fuelToday = fuelMonth.filter((f) => {
@@ -55,6 +57,16 @@ export async function getDashboardData() {
   const alerts = statuses
     .filter((s) => s.vehicle.active)
     .sort((a, b) => a.status.remainingKm - b.status.remainingKm);
+
+  // Which vehicle should go out today? Among active vehicles that aren't
+  // already on the road, prefer the one with the MOST mileage left before
+  // its next service — that spreads wear across the fleet instead of
+  // pushing a vehicle that's already close to due even closer.
+  const eligibleForRoute = statuses.filter((s) => s.vehicle.active && !busyVehicleIds.has(s.vehicle.id));
+  const routeSuggestion =
+    eligibleForRoute.length >= 2
+      ? eligibleForRoute.slice().sort((a, b) => b.status.remainingKm - a.status.remainingKm)[0]
+      : null;
 
   const sum = (arr, key) => arr.reduce((s, x) => s + (Number(x[key]) || 0), 0);
 
@@ -81,5 +93,6 @@ export async function getDashboardData() {
       urgent: statuses.filter((s) => s.vehicle.active && s.status.alertLevel === "urgent").length,
     },
     alerts,
+    routeSuggestion,
   };
 }

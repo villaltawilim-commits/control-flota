@@ -72,6 +72,9 @@ export async function renderRouteNew(container) {
     return;
   }
 
+  const { vehicleId: initialVehicleId } = currentQuery();
+  const initialVehicle = vehicles.find((v) => v.id === initialVehicleId) || vehicles[0];
+
   container.innerHTML = `
     <div class="page">
       ${pageHeaderHtml({ title: "Nueva ruta", backHref: "/routes" })}
@@ -81,15 +84,15 @@ export async function renderRouteNew(container) {
         <div class="field">
           <label>Vehículo</label>
           <select name="vehicleId" id="vehicle-select" required>
-            ${vehicles.map((v) => `<option value="${v.id}" data-mileage="${v.currentMileage}">${v.brand} ${v.model} · ${v.plate}</option>`).join("")}
+            ${vehicles.map((v) => `<option value="${v.id}" data-mileage="${v.currentMileage}" ${v.id === initialVehicle.id ? "selected" : ""}>${v.brand} ${v.model} · ${v.plate}</option>`).join("")}
           </select>
         </div>
         <div class="field">
           <label>Ruta / Destino</label>
           ${destinationSelectHtml({ name: "destination" })}
         </div>
-        <div class="field"><label>Millaje de salida (mi)</label><input name="departureMileage" id="departure-mileage" type="number" min="${vehicles[0].currentMileage}" value="${vehicles[0].currentMileage}" required></div>
-        <p id="mileage-hint" class="field" style="margin-top:-8px;font-size:12px;color:var(--muted);">Último registrado: ${vehicles[0].currentMileage.toLocaleString("es-GT")} mi · La hora de salida se registra automáticamente.</p>
+        <div class="field"><label>Millaje de salida (mi)</label><input name="departureMileage" id="departure-mileage" type="number" min="${initialVehicle.currentMileage}" value="${initialVehicle.currentMileage}" required></div>
+        <p id="mileage-hint" class="field" style="margin-top:-8px;font-size:12px;color:var(--muted);">Último registrado: ${initialVehicle.currentMileage.toLocaleString("es-GT")} mi · La hora de salida se registra automáticamente.</p>
         <div class="field"><label>Observaciones</label><textarea name="observations" placeholder="Opcional"></textarea></div>
         <button type="submit" class="btn btn-primary btn-full">Iniciar ruta</button>
       </form>

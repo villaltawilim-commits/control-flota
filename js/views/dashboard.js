@@ -2,6 +2,10 @@ import { getDashboardData } from "../lib/dashboard.js";
 import { formatCurrency, formatDistance, formatNumber } from "../lib/format.js";
 import { ALERT_LEVEL_ICON } from "../lib/vehicle-status.js";
 import { state } from "../lib/store.js";
+import { can } from "../lib/permissions.js";
+import { openModal, closeModal } from "../lib/ui.js";
+import { icon } from "../lib/icons.js";
+import { navigate } from "../lib/router.js";
 
 export async function renderDashboard(container) {
   container.innerHTML = `<div class="center-page"><div class="spinner"></div></div>`;
@@ -88,4 +92,51 @@ export async function renderDashboard(container) {
       </div>
     </div>
   `;
+
+  maybeShowRouteSuggestion(data.routeSuggestion);
+}
+
+function maybeShowRouteSuggestion(suggestion) {
+  if (!suggestion || !can(state.profile, "routes", "create")) return;
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+  try {
+    if (localStorage.getItem("routeSuggestionShownDate") === todayStr) return;
+  } catch {
+    /* ignore storage access errors */
+  }
+
+  const { vehicle, status } = suggestion;
+  const remainingText =
+    status.remainingKm >= 0
+      ? `le faltan ${formatDistance(status.remainingKm)} para su próximo servicio`
+      : `aunque ya lleva ${formatDistance(Math.abs(status.remainingKm))} de más desde su último servicio, es el que menos atrasado está`;
+
+  const overlay = openModal(`
+    <div class="modal-header">
+      <p style="font-weight:700;font-size:16px;margin:0;">🚚 Sugerencia de ruta</p>
+      <button type="button" id="modal-close-x" class="modal-close-btn" aria-label="Cerrar">${icon("close", 16)}</button>
+    </div>
+    <p style="margin:0 0 16px;font-size:14px;color:var(--muted);">
+      Se sugiere mandar a ruta hoy a <strong>${vehicle.brand} ${vehicle.model} · ${vehicle.plate}</strong>.
+      Es el vehículo con más margen antes de su próximo servicio entre los disponibles: ${remainingText}.
+    </p>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <button type="button" id="suggestion-go" class="btn btn-primary btn-full">Ir a nueva ruta</button>
+      <button type="button" id="suggestion-dismiss" class="btn btn-secondary btn-full">Ahora no</button>
+    </div>
+  `);
+
+  try {
+    localStorage.setItem("routeSuggestionShownDate", todayStr);
+  } catch {
+    /* ignore storage access errors */
+  }
+
+  overlay.querySelector("#modal-close-x").addEventListener("click", () => closeModal());
+  overlay.querySelector("#suggestion-dismiss").addEventListener("click", () => closeModal());
+  overlay.querySelector("#suggestion-go").addEventListener("click", () => {
+    closeModal();
+    navigate(`/routes/new?vehicleId=${vehicle.id}`);
+  });
 }

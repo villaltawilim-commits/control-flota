@@ -126,6 +126,11 @@ export async function getRoutes({ vehicleId } = {}) {
   return list;
 }
 
+export async function getOpenRoutes() {
+  const snap = await getDocs(query(collection(db, "routes"), where("status", "==", "OPEN")));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
 export async function getRoute(id) {
   const snap = await getDoc(doc(db, "routes", id));
   return snap.exists() ? { id: snap.id, ...snap.data() } : null;
