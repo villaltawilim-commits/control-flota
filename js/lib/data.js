@@ -363,14 +363,21 @@ export async function getMaintenances({ vehicleId } = {}, take = 60) {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
-export async function createMaintenance(data, user) {
+export async function createMaintenance(data, files, user) {
   const vehicleRef = doc(db, "vehicles", data.vehicleId);
   const vehicleSnap = await getDoc(vehicleRef);
   if (!vehicleSnap.exists()) throw new Error("Vehículo no encontrado.");
   const vehicle = vehicleSnap.data();
 
-  const batch = writeBatch(db);
+  const hasMileagePhoto = files?.mileagePhoto instanceof File && files.mileagePhoto.size > 0;
+  if (!hasMileagePhoto) {
+    throw new Error("Debes adjuntar una fotografía del millaje del vehículo.");
+  }
+
   const maintRef = doc(collection(db, "maintenances"));
+  const mileagePhoto = await uploadPhoto(maintRef.id, "mileage", files.mileagePhoto);
+
+  const batch = writeBatch(db);
   batch.set(maintRef, {
     vehicleId: data.vehicleId,
     date: toTimestamp(data.date),
@@ -378,6 +385,8 @@ export async function createMaintenance(data, user) {
     description: data.description,
     cost: data.cost ?? null,
     performedBy: data.performedBy || null,
+    mileagePhotoPath: mileagePhoto.path,
+    mileagePhotoUrl: mileagePhoto.url,
     createdById: user.uid,
     createdAt: serverTimestamp(),
   });
@@ -388,12 +397,21 @@ export async function createMaintenance(data, user) {
     updatedAt: serverTimestamp(),
   });
   await batch.commit();
-  await logAudit("Maintenance", maintRef.id, "CREATE", user.uid, data);
+  await logAudit("Maintenance", maintRef.id, "CREATE", user.uid, { ...data, mileagePhoto: true });
   return maintRef.id;
 }
 
 export async function deleteMaintenance(id, user) {
+  const snap = await getDoc(doc(db, "maintenances", id));
+  const maint = snap.data();
   await deleteDoc(doc(db, "maintenances", id));
+  if (maint?.mileagePhotoPath) {
+    try {
+      await deleteObject(storageRef(storage, maint.mileagePhotoPath));
+    } catch {
+      /* ignore */
+    }
+  }
   await logAudit("Maintenance", id, "DELETE", user.uid, null);
 }
 

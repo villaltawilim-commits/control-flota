@@ -6,6 +6,7 @@ import { pageHeaderHtml, emptyStateHtml, toast, confirmAction } from "../lib/ui.
 import { icon } from "../lib/icons.js";
 import { navigate } from "../lib/router.js";
 import { decimalInputAttrs, wireDecimalInputs, parseDecimal } from "../lib/decimal-input.js";
+import { photoCaptureHtml, wirePhotoCapture } from "../lib/photo-capture.js";
 
 export async function renderMaintenanceList(container) {
   container.innerHTML = `<div class="center-page"><div class="spinner"></div></div>`;
@@ -38,7 +39,7 @@ export async function renderMaintenanceList(container) {
                       ${m.cost != null ? `<span style="font-weight:600;flex-shrink:0;">${formatCurrency(m.cost)}</span>` : ""}
                     </div>
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;font-size:13px;color:var(--muted);">
-                      <span>${formatDate(m.date)} · ${formatDistance(m.mileage)}${m.performedBy ? ` · ${m.performedBy}` : ""}</span>
+                      <span>${formatDate(m.date)} · ${formatDistance(m.mileage)}${m.performedBy ? ` · ${m.performedBy}` : ""}${m.mileagePhotoUrl ? ` · <a href="${m.mileagePhotoUrl}" target="_blank" rel="noopener" style="color:var(--primary-600);font-weight:500;">📷 Ver foto</a>` : ""}</span>
                       ${canDelete ? `<button class="btn-link-danger delete-maint" data-id="${m.id}">${icon("trash", 14)}</button>` : ""}
                     </div>
                   </div>`;
@@ -85,6 +86,7 @@ export async function renderMaintenanceNew(container) {
           <div class="field"><label>Costo</label><input name="cost" ${decimalInputAttrs} data-decimal placeholder="Opcional"></div>
           <div class="field"><label>Realizado por</label><input name="performedBy" placeholder="Taller / mecánico"></div>
         </div>
+        ${photoCaptureHtml("mileagePhoto", "Foto del millaje", true)}
         <p class="banner-info">Al guardar, este servicio se convierte en el último mantenimiento del vehículo y se recalcula automáticamente el próximo millaje de servicio.</p>
         <button type="submit" class="btn btn-primary btn-full">Guardar mantenimiento</button>
       </form>
@@ -95,6 +97,7 @@ export async function renderMaintenanceNew(container) {
     document.getElementById("mileage-input").value = e.target.selectedOptions[0].dataset.mileage;
   });
   wireDecimalInputs(container);
+  wirePhotoCapture(container, "mileagePhoto");
 
   const form = document.getElementById("maint-form");
   form.addEventListener("submit", async (e) => {
@@ -110,11 +113,12 @@ export async function renderMaintenanceNew(container) {
       cost: fd.get("cost") ? parseDecimal(fd.get("cost")) : null,
       performedBy: fd.get("performedBy").trim(),
     };
+    const files = { mileagePhoto: fd.get("mileagePhoto") };
     const btn = form.querySelector("button[type=submit]");
     btn.disabled = true;
     btn.textContent = "Guardando...";
     try {
-      await data.createMaintenance(payload, state.user);
+      await data.createMaintenance(payload, files, state.user);
       navigate("/maintenance");
     } catch (err) {
       errorBox.innerHTML = `<p class="banner-error">${err.message}</p>`;
