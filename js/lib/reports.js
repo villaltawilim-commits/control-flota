@@ -1,6 +1,29 @@
 import { db, collection, getDocs, query, where, orderBy, fsLimit, Timestamp } from "./firebase.js";
 import { getVehicles, getUsers } from "./data.js";
 
+export function periodRange(period) {
+  const now = new Date();
+  const fmt = (d) => d.toISOString().slice(0, 10);
+  let start, end;
+
+  if (period === "week") {
+    const dayOfWeek = (now.getDay() + 6) % 7; // 0 = Monday
+    start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dayOfWeek);
+    end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6);
+  } else if (period === "year") {
+    start = new Date(now.getFullYear(), 0, 1);
+    end = new Date(now.getFullYear(), 11, 31);
+  } else if (period === "month") {
+    start = new Date(now.getFullYear(), now.getMonth(), 1);
+    end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  } else {
+    // "day" (and the default) is just today.
+    start = end = now;
+  }
+
+  return { dateFrom: fmt(start), dateTo: fmt(end) };
+}
+
 function dateRange(filters) {
   const range = {};
   if (filters.dateFrom) range.gte = Timestamp.fromDate(new Date(`${filters.dateFrom}T00:00:00`));
@@ -19,6 +42,45 @@ function inRange(ts, range) {
 export async function getReportFilterOptions() {
   const [vehicles, users] = await Promise.all([getVehicles(), getUsers()]);
   return { vehicles, users: users.filter((u) => u.active) };
+}
+
+export async function getSummaryReport(filters) {
+  const range = dateRange(filters);
+  const [routesSnap, fuelSnap, maintSnap] = await Promise.all([
+    getDocs(query(collection(db, "routes"), where("status", "==", "CLOSED"), fsLimit(1000))),
+    getDocs(query(collection(db, "fuelLogs"), fsLimit(1000))),
+    getDocs(query(collection(db, "maintenances"), fsLimit(1000))),
+  ]);
+
+  let routes = routesSnap.docs.map((d) => d.data()).filter((r) => inRange(r.date, range));
+  let fuelLogs = fuelSnap.docs.map((d) => d.data()).filter((f) => inRange(f.date, range));
+  let maint = maintSnap.docs.map((d) => d.data()).filter((m) => inRange(m.date, range));
+
+  if (filters.vehicleId) {
+    routes = routes.filter((r) => r.vehicleId === filters.vehicleId);
+    fuelLogs = fuelLogs.filter((f) => f.vehicleId === filters.vehicleId);
+    maint = maint.filter((m) => m.vehicleId === filters.vehicleId);
+  }
+
+  const distanceKm = routes.reduce((s, r) => s + (r.distanceKm || 0), 0);
+  const routeCount = routes.length;
+  const fuelQty = fuelLogs.reduce((s, f) => s + f.quantity, 0);
+  const fuelCost = fuelLogs.reduce((s, f) => s + f.total, 0);
+  const maintCost = maint.reduce((s, m) => s + (m.cost || 0), 0);
+
+  return {
+    distanceKm,
+    routeCount,
+    fuelQty,
+    fuelCost,
+    fuelChargeCount: fuelLogs.length,
+    maintCost,
+    maintCount: maint.length,
+    costPerKm: distanceKm > 0 ? fuelCost / distanceKm : null,
+    avgConsumption: fuelQty > 0 ? distanceKm / fuelQty : null,
+    avgCostPerRoute: routeCount > 0 ? fuelCost / routeCount : null,
+    totalOperatingCost: fuelCost + maintCost,
+  };
 }
 
 export async function getRouteReport(filters) {

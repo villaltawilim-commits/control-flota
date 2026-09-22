@@ -1,12 +1,27 @@
-import { getRouteReport, getPerformanceReport, getReportFilterOptions } from "../lib/reports.js";
+import { getRouteReport, getPerformanceReport, getReportFilterOptions, getSummaryReport, periodRange } from "../lib/reports.js";
 import { formatCurrency, formatDate, formatDistance, formatNumber } from "../lib/format.js";
 import { pageHeaderHtml, emptyStateHtml } from "../lib/ui.js";
 import { currentQuery, navigate } from "../lib/router.js";
 
+const PERIODS = [
+  { value: "day", label: "Día" },
+  { value: "week", label: "Semana" },
+  { value: "month", label: "Mes" },
+  { value: "year", label: "Año" },
+  { value: "custom", label: "Personalizado" },
+];
+
 export async function renderReports(container, params, query) {
   container.innerHTML = `<div class="center-page"><div class="spinner"></div></div>`;
 
-  const tab = query.tab === "performance" ? "performance" : "routes";
+  const tab = query.tab === "performance" ? "performance" : query.tab === "routes" ? "routes" : "summary";
+  const { vehicles, users } = await getReportFilterOptions();
+
+  if (tab === "summary") {
+    await renderSummaryTab(container, query, vehicles);
+    return;
+  }
+
   const filters = {
     dateFrom: query.dateFrom || "",
     dateTo: query.dateTo || "",
@@ -18,17 +33,13 @@ export async function renderReports(container, params, query) {
   };
   const sort = query.sort || "gasto_desc";
 
-  const { vehicles, users } = await getReportFilterOptions();
   const rows = tab === "routes" ? await getRouteReport(filters) : await getPerformanceReport(filters, sort);
 
   container.innerHTML = `
     <div class="page wide">
       ${pageHeaderHtml({ title: "Reportes", subtitle: "Rutas, combustible y rendimiento" })}
       <div class="content">
-        <div class="tabs">
-          <a class="tab-link ${tab === "routes" ? "active" : ""}" href="#/reports?tab=routes${queryTail(filters)}">Por ruta</a>
-          <a class="tab-link ${tab === "performance" ? "active" : ""}" href="#/reports?tab=performance${queryTail(filters)}">Rendimiento</a>
-        </div>
+        ${tabsHtml(tab, filters)}
 
         <form class="filter-form" id="filter-form">
           <input type="hidden" name="tab" value="${tab}">
@@ -78,6 +89,110 @@ export async function renderReports(container, params, query) {
     for (const [k, v] of fd.entries()) if (v) params.set(k, v);
     navigate(`/reports?${params.toString()}`);
   });
+}
+
+async function renderSummaryTab(container, query, vehicles) {
+  const period = PERIODS.some((p) => p.value === query.period) ? query.period : "month";
+  const vehicleId = query.vehicleId || "";
+  const customFrom = query.dateFrom || "";
+  const customTo = query.dateTo || "";
+
+  const { dateFrom, dateTo } = period === "custom" ? { dateFrom: customFrom, dateTo: customTo } : periodRange(period);
+  const data = await getSummaryReport({ vehicleId, dateFrom, dateTo });
+
+  const vehicleTail = vehicleId ? `&vehicleId=${vehicleId}` : "";
+  const selectedVehicle = vehicles.find((v) => v.id === vehicleId);
+
+  container.innerHTML = `
+    <div class="page wide">
+      ${pageHeaderHtml({ title: "Reportes", subtitle: "Rutas, combustible y rendimiento" })}
+      <div class="content">
+        ${tabsHtml("summary", {})}
+
+        <div class="filter-form" style="grid-template-columns:1fr;gap:16px;">
+          <div class="field">
+            <label>Vehículo</label>
+            <select id="summary-vehicle">
+              <option value="">Todos los vehículos</option>
+              ${vehicles.map((v) => `<option value="${v.id}" ${v.id === vehicleId ? "selected" : ""}>${v.brand} ${v.model} · ${v.plate}</option>`).join("")}
+            </select>
+          </div>
+          <div class="field">
+            <label>Período</label>
+            <div class="tabs" style="margin-bottom:0;flex-wrap:wrap;">
+              ${PERIODS.map((p) => `<a class="tab-link ${period === p.value ? "active" : ""}" href="#/reports?tab=summary&period=${p.value}${vehicleTail}">${p.label}</a>`).join("")}
+            </div>
+          </div>
+          ${
+            period === "custom"
+              ? `<form id="custom-range-form" style="display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:end;">
+                  <div class="field" style="margin:0;"><label>Desde</label><input type="date" name="dateFrom" value="${customFrom}"></div>
+                  <div class="field" style="margin:0;"><label>Hasta</label><input type="date" name="dateTo" value="${customTo}"></div>
+                  <button type="submit" class="btn btn-primary">Aplicar</button>
+                </form>`
+              : `<p style="margin:0;font-size:13px;color:var(--muted);">${formatDate(dateFrom)} — ${formatDate(dateTo)}${selectedVehicle ? ` · ${selectedVehicle.brand} ${selectedVehicle.model} · ${selectedVehicle.plate}` : " · Toda la flota"}</p>`
+          }
+        </div>
+
+        <p class="section-label">Recorrido</p>
+        <div class="stat-grid cols-2">
+          <div class="stat-card"><p class="label">Km/millas recorridos</p><p class="value">${formatDistance(data.distanceKm)}</p></div>
+          <div class="stat-card"><p class="label">Rutas realizadas</p><p class="value">${data.routeCount}</p></div>
+        </div>
+
+        <p class="section-label">Combustible</p>
+        <div class="stat-grid cols-2">
+          <div class="stat-card"><p class="label">Combustible gastado</p><p class="value">${formatCurrency(data.fuelCost)}</p></div>
+          <div class="stat-card"><p class="label">Costo por milla</p><p class="value">${data.costPerKm != null ? formatCurrency(data.costPerKm) : "—"}</p></div>
+          <div class="stat-card"><p class="label">Combustible consumido</p><p class="value">${formatNumber(data.fuelQty, 1)} gal/L</p></div>
+          <div class="stat-card"><p class="label">Consumo promedio</p><p class="value">${data.avgConsumption != null ? `${formatNumber(data.avgConsumption, 1)} mi/gal` : "—"}</p></div>
+        </div>
+
+        <p class="section-label">Costos generales</p>
+        <div class="stat-grid cols-2">
+          <div class="stat-card"><p class="label">Mantenimiento</p><p class="value">${formatCurrency(data.maintCost)}</p></div>
+          <div class="stat-card tone-primary"><p class="label">Costo total de operación</p><p class="value">${formatCurrency(data.totalOperatingCost)}</p></div>
+          <div class="stat-card"><p class="label">Gasto promedio por ruta</p><p class="value">${data.avgCostPerRoute != null ? formatCurrency(data.avgCostPerRoute) : "—"}</p></div>
+          <div class="stat-card"><p class="label">Cargas de combustible</p><p class="value">${data.fuelChargeCount}</p></div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById("summary-vehicle").addEventListener("change", (e) => {
+    const params = new URLSearchParams();
+    params.set("tab", "summary");
+    params.set("period", period);
+    if (period === "custom") {
+      if (customFrom) params.set("dateFrom", customFrom);
+      if (customTo) params.set("dateTo", customTo);
+    }
+    if (e.target.value) params.set("vehicleId", e.target.value);
+    navigate(`/reports?${params.toString()}`);
+  });
+
+  document.getElementById("custom-range-form")?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const params = new URLSearchParams();
+    params.set("tab", "summary");
+    params.set("period", "custom");
+    if (vehicleId) params.set("vehicleId", vehicleId);
+    if (fd.get("dateFrom")) params.set("dateFrom", fd.get("dateFrom"));
+    if (fd.get("dateTo")) params.set("dateTo", fd.get("dateTo"));
+    navigate(`/reports?${params.toString()}`);
+  });
+}
+
+function tabsHtml(activeTab, filters) {
+  const summaryTail = filters.vehicleId ? `&vehicleId=${filters.vehicleId}` : "";
+  return `
+    <div class="tabs">
+      <a class="tab-link ${activeTab === "summary" ? "active" : ""}" href="#/reports?tab=summary${summaryTail}">Resumen</a>
+      <a class="tab-link ${activeTab === "routes" ? "active" : ""}" href="#/reports?tab=routes${queryTail(filters)}">Por ruta</a>
+      <a class="tab-link ${activeTab === "performance" ? "active" : ""}" href="#/reports?tab=performance${queryTail(filters)}">Rendimiento</a>
+    </div>
+  `;
 }
 
 function queryTail(filters) {
