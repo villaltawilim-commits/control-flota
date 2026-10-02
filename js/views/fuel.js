@@ -1,7 +1,7 @@
 import { state } from "../lib/store.js";
 import { can } from "../lib/permissions.js";
 import * as data from "../lib/data.js";
-import { formatCurrency, formatDate, formatDistance, todayInput } from "../lib/format.js";
+import { formatCurrency, formatDateTime, formatDistance } from "../lib/format.js";
 import { pageHeaderHtml, emptyStateHtml, toast, confirmAction } from "../lib/ui.js";
 import { icon } from "../lib/icons.js";
 import { navigate, currentQuery } from "../lib/router.js";
@@ -42,7 +42,7 @@ export async function renderFuelList(container) {
                     <div class="item-row">
                       <div style="min-width:0;">
                         <p class="title">${v.brand || ""} ${v.model || ""} · ${v.plate || ""}</p>
-                        <p class="sub">${formatDate(f.date)} · ${f.fuelType} · ${f.quantity} gal</p>
+                        <p class="sub">${formatDateTime(f.date)} · ${f.fuelType} · ${f.quantity} gal</p>
                       </div>
                       <span style="font-weight:600;flex-shrink:0;">${formatCurrency(f.total)}</span>
                     </div>
@@ -75,7 +75,7 @@ export async function renderFuelNew(container) {
       ${pageHeaderHtml({ title: "Registrar combustible", backHref: "/fuel" })}
       <form class="form" id="fuel-form">
         <div id="form-error"></div>
-        <div class="field"><label>Fecha</label><input name="date" type="date" value="${todayInput()}" required></div>
+        <p class="banner-info" style="margin:0 0 4px;">La fecha y hora se registran automáticamente al guardar.</p>
         <div class="field">
           <label>Vehículo</label>
           <select name="vehicleId" id="vehicle-select" required>
@@ -165,7 +165,7 @@ export async function renderFuelNew(container) {
     errorBox.innerHTML = "";
     const fd = new FormData(form);
     const payload = {
-      date: fd.get("date"),
+      date: new Date().toISOString(),
       vehicleId: fd.get("vehicleId"),
       routeId: fd.get("routeId") || "",
       mileage: Number(fd.get("mileage")),
@@ -214,7 +214,7 @@ export async function renderFuelDetail(container, params) {
 
   container.innerHTML = `
     <div class="page">
-      ${pageHeaderHtml({ title: vehicle ? `${vehicle.brand} ${vehicle.model}` : "Combustible", subtitle: formatDate(fuelLog.date), backHref: "/fuel" })}
+      ${pageHeaderHtml({ title: vehicle ? `${vehicle.brand} ${vehicle.model}` : "Combustible", subtitle: formatDateTime(fuelLog.date), backHref: "/fuel" })}
       <div class="content">
         <div class="card">
           <div class="info-grid">

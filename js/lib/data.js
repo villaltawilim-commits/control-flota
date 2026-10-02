@@ -27,7 +27,13 @@ import {
 import { computeFlatPermissions } from "./permissions.js";
 
 function toTimestamp(dateStr) {
-  return Timestamp.fromDate(new Date(dateStr));
+  // A plain "YYYY-MM-DD" string parses as UTC midnight in JS, which then
+  // displays as the previous day in any timezone behind UTC (e.g. Guatemala,
+  // UTC-6). Appending a local time-of-day forces local-time parsing instead.
+  // Strings that already carry a time component (e.g. a full ISO instant
+  // from `new Date().toISOString()`) are passed through unchanged.
+  const hasTime = typeof dateStr === "string" && dateStr.includes("T");
+  return Timestamp.fromDate(new Date(hasTime ? dateStr : `${dateStr}T00:00:00`));
 }
 
 function toTimestampWithTime(dateStr, timeStr) {
