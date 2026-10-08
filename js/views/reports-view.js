@@ -1,4 +1,4 @@
-import { getRouteReport, getPerformanceReport, getReportFilterOptions, getSummaryReport, periodRange } from "../lib/reports.js";
+import { getRouteReport, getPerformanceReport, getReportFilterOptions, getSummaryReport, getDriverReport, periodRange } from "../lib/reports.js";
 import { formatCurrency, formatDate, formatDistance, formatNumber } from "../lib/format.js";
 import { pageHeaderHtml, emptyStateHtml } from "../lib/ui.js";
 import { currentQuery, navigate } from "../lib/router.js";
@@ -14,11 +14,17 @@ const PERIODS = [
 export async function renderReports(container, params, query) {
   container.innerHTML = `<div class="center-page"><div class="spinner"></div></div>`;
 
-  const tab = query.tab === "performance" ? "performance" : query.tab === "routes" ? "routes" : "summary";
+  const tab =
+    query.tab === "performance" ? "performance" : query.tab === "routes" ? "routes" : query.tab === "drivers" ? "drivers" : "summary";
   const { vehicles, users } = await getReportFilterOptions();
 
   if (tab === "summary") {
     await renderSummaryTab(container, query, vehicles);
+    return;
+  }
+
+  if (tab === "drivers") {
+    await renderDriversTab(container, query, vehicles);
     return;
   }
 
@@ -184,11 +190,120 @@ async function renderSummaryTab(container, query, vehicles) {
   });
 }
 
+async function renderDriversTab(container, query, vehicles) {
+  const period = PERIODS.some((p) => p.value === query.period) ? query.period : "month";
+  const vehicleId = query.vehicleId || "";
+  const sort = ["km_desc", "hours_desc", "routes_desc"].includes(query.sort) ? query.sort : "km_desc";
+  const customFrom = query.dateFrom || "";
+  const customTo = query.dateTo || "";
+
+  const { dateFrom, dateTo } = period === "custom" ? { dateFrom: customFrom, dateTo: customTo } : periodRange(period);
+  const rows = await getDriverReport({ vehicleId, dateFrom, dateTo }, sort);
+
+  const vehicleTail = vehicleId ? `&vehicleId=${vehicleId}` : "";
+  const selectedVehicle = vehicles.find((v) => v.id === vehicleId);
+
+  container.innerHTML = `
+    <div class="page wide">
+      ${pageHeaderHtml({ title: "Reportes", subtitle: "Rutas, combustible y rendimiento" })}
+      <div class="content">
+        ${tabsHtml("drivers", {})}
+
+        <div class="filter-form" style="grid-template-columns:1fr;gap:16px;">
+          <div class="field">
+            <label>Vehículo</label>
+            <select id="drivers-vehicle">
+              <option value="">Todos los vehículos</option>
+              ${vehicles.map((v) => `<option value="${v.id}" ${v.id === vehicleId ? "selected" : ""}>${v.brand} ${v.model} · ${v.plate}</option>`).join("")}
+            </select>
+          </div>
+          <div class="field">
+            <label>Período</label>
+            <div class="tabs" style="margin-bottom:0;flex-wrap:wrap;">
+              ${PERIODS.map((p) => `<a class="tab-link ${period === p.value ? "active" : ""}" href="#/reports?tab=drivers&period=${p.value}&sort=${sort}${vehicleTail}">${p.label}</a>`).join("")}
+            </div>
+          </div>
+          ${
+            period === "custom"
+              ? `<form id="custom-range-form" style="display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:end;">
+                  <div class="field" style="margin:0;"><label>Desde</label><input type="date" name="dateFrom" value="${customFrom}"></div>
+                  <div class="field" style="margin:0;"><label>Hasta</label><input type="date" name="dateTo" value="${customTo}"></div>
+                  <button type="submit" class="btn btn-primary">Aplicar</button>
+                </form>`
+              : `<p style="margin:0;font-size:13px;color:var(--muted);">${formatDate(dateFrom)} — ${formatDate(dateTo)}${selectedVehicle ? ` · ${selectedVehicle.brand} ${selectedVehicle.model} · ${selectedVehicle.plate}` : " · Toda la flota"}</p>`
+          }
+          <div class="field">
+            <label>Ordenar por</label>
+            <select id="drivers-sort">
+              <option value="km_desc" ${sort === "km_desc" ? "selected" : ""}>Más millaje recorrido</option>
+              <option value="hours_desc" ${sort === "hours_desc" ? "selected" : ""}>Más horas en ruta</option>
+              <option value="routes_desc" ${sort === "routes_desc" ? "selected" : ""}>Más rutas realizadas</option>
+            </select>
+          </div>
+        </div>
+
+        ${driverTable(rows)}
+      </div>
+    </div>
+  `;
+
+  document.getElementById("drivers-vehicle").addEventListener("change", (e) => {
+    navigate(driversUrl({ period, sort, vehicleId: e.target.value, customFrom, customTo }));
+  });
+  document.getElementById("drivers-sort").addEventListener("change", (e) => {
+    navigate(driversUrl({ period, sort: e.target.value, vehicleId, customFrom, customTo }));
+  });
+  document.getElementById("custom-range-form")?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    navigate(driversUrl({ period: "custom", sort, vehicleId, customFrom: fd.get("dateFrom"), customTo: fd.get("dateTo") }));
+  });
+}
+
+function driversUrl({ period, sort, vehicleId, customFrom, customTo }) {
+  const params = new URLSearchParams();
+  params.set("tab", "drivers");
+  params.set("period", period);
+  params.set("sort", sort);
+  if (vehicleId) params.set("vehicleId", vehicleId);
+  if (period === "custom") {
+    if (customFrom) params.set("dateFrom", customFrom);
+    if (customTo) params.set("dateTo", customTo);
+  }
+  return `/reports?${params.toString()}`;
+}
+
+function driverTable(rows) {
+  if (rows.length === 0) return emptyStateHtml({ title: "Sin resultados", desc: "No hay rutas cerradas en este período." });
+  return `
+    <div class="table-wrap">
+      <table class="report">
+        <thead><tr><th>#</th><th>Chofer</th><th class="num">Rutas</th><th class="num">Millas recorridas</th><th class="num">Horas en ruta</th><th class="num">Mi/ruta prom.</th></tr></thead>
+        <tbody>
+          ${rows
+            .map(
+              (r, i) => `<tr>
+              <td>${i + 1}</td>
+              <td>${r.driverName}</td>
+              <td class="num">${r.routeCount}</td>
+              <td class="num" style="font-weight:600;">${formatDistance(r.distanceKm)}</td>
+              <td class="num" style="font-weight:600;">${formatNumber(r.hours, 1)} h</td>
+              <td class="num">${r.avgKmPerRoute != null ? formatDistance(r.avgKmPerRoute) : "—"}</td>
+            </tr>`
+            )
+            .join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
 function tabsHtml(activeTab, filters) {
   const summaryTail = filters.vehicleId ? `&vehicleId=${filters.vehicleId}` : "";
   return `
     <div class="tabs">
       <a class="tab-link ${activeTab === "summary" ? "active" : ""}" href="#/reports?tab=summary${summaryTail}">Resumen</a>
+      <a class="tab-link ${activeTab === "drivers" ? "active" : ""}" href="#/reports?tab=drivers${summaryTail}">Choferes</a>
       <a class="tab-link ${activeTab === "routes" ? "active" : ""}" href="#/reports?tab=routes${queryTail(filters)}">Por ruta</a>
       <a class="tab-link ${activeTab === "performance" ? "active" : ""}" href="#/reports?tab=performance${queryTail(filters)}">Rendimiento</a>
     </div>

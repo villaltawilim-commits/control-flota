@@ -156,6 +156,46 @@ const SORTERS = {
   km_desc: (a, b) => b.distanceKm - a.distanceKm,
 };
 
+const DRIVER_SORTERS = {
+  km_desc: (a, b) => b.distanceKm - a.distanceKm,
+  hours_desc: (a, b) => b.hours - a.hours,
+  routes_desc: (a, b) => b.routeCount - a.routeCount,
+};
+
+export async function getDriverReport(filters, sort = "km_desc") {
+  const range = dateRange(filters);
+  const [routesSnap, usersSnap] = await Promise.all([
+    getDocs(query(collection(db, "routes"), where("status", "==", "CLOSED"), fsLimit(1000))),
+    getDocs(collection(db, "users")),
+  ]);
+
+  const usersById = Object.fromEntries(usersSnap.docs.map((d) => [d.id, d.data()]));
+  let routes = routesSnap.docs.map((d) => d.data()).filter((r) => inRange(r.date, range));
+  if (filters.vehicleId) routes = routes.filter((r) => r.vehicleId === filters.vehicleId);
+
+  const byDriver = {};
+  for (const r of routes) {
+    const key = r.driverId;
+    if (!key) continue;
+    byDriver[key] ||= { driverId: key, distanceKm: 0, hours: 0, routeCount: 0 };
+    byDriver[key].distanceKm += r.distanceKm || 0;
+    byDriver[key].routeCount += 1;
+    const departMs = r.departureTime?.toMillis?.();
+    const arriveMs = r.arrivalTime?.toMillis?.();
+    if (departMs != null && arriveMs != null && arriveMs > departMs) {
+      byDriver[key].hours += (arriveMs - departMs) / 3600000;
+    }
+  }
+
+  const results = Object.values(byDriver).map((d) => ({
+    ...d,
+    driverName: usersById[d.driverId]?.name || "—",
+    avgKmPerRoute: d.routeCount > 0 ? d.distanceKm / d.routeCount : null,
+  }));
+
+  return results.sort(DRIVER_SORTERS[sort] || DRIVER_SORTERS.km_desc);
+}
+
 export async function getPerformanceReport(filters, sort = "gasto_desc") {
   const range = dateRange(filters);
   const [vehiclesSnap, routesSnap, fuelSnap] = await Promise.all([
